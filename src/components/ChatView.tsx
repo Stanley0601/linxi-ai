@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Character, ChatMsg, ProactiveInboxEntry, RelationshipState, UserProfile } from "@/types";
 import { getChatInterestSummary, initChatState, handleUserMessage, type ChatState } from "@/lib/chat-engine";
-import { saveChatHistory, loadChatHistory } from "@/lib/memory";
+import { clearChatDraft, loadChatDraft, loadChatHistory, saveChatDraft, saveChatHistory } from "@/lib/memory";
 import { getWeatherCareLine } from "@/lib/weather-context";
 import { MsgBubble, TypingBubble } from "./ChatBubbles";
 import { QQ_BLUE } from "@/lib/constants";
+
+const MAX_INPUT_LENGTH = 80;
 
 type InitialChatSession = {
   state: ChatState;
@@ -86,21 +88,29 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
 }) {
   const initialSession = useMemo(
     () => createInitialChatSession(char.id, userProfile, relationship, proactiveEntry),
-    [char.id, userProfile, relationship, proactiveEntry],
+    // ChatView is keyed by `chat-${char.id}-${chatKey}`, so the component
+    // remounts on character change. Only char.id is needed here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [char.id],
   );
 
   const [state, setState] = useState<ChatState>(initialSession.state);
   const [displayed, setDisplayed] = useState<ChatMsg[]>(initialSession.displayed);
-  const [queue, setQueue] = useState<ChatMsg[]>(initialSession.queue);
+  const [queue, setQueue] = useState(initialSession.queue);
   const [typing, setTyping] = useState(false);
   const [userTurn, setUserTurn] = useState(initialSession.userTurn);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(() => loadChatDraft(char.id));
   const [suggestions, setSuggestions] = useState<string[]>(initialSession.suggestions);
+  const [isComposing, setIsComposing] = useState(false);
+  const [lastClearedDraft, setLastClearedDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const interestSummary = getChatInterestSummary(userProfile);
   const weatherCare = getWeatherCareLine(userProfile?.city);
+  const canSend = input.trim().length > 0 && !isComposing;
+  const inputCount = input.trim().length;
+  const remainingCount = MAX_INPUT_LENGTH - input.length;
 
   const scrollBottom = useCallback(() => {
     setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 80);
@@ -130,6 +140,10 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
       });
     }
   }, [displayed, char.id, state.currentStageIndex, state.turnsInCurrentStage, state.userIntents, state.suggestedReplies, state.isFinished, state.endingId, state.usedInterestTopicIds]);
+
+  useEffect(() => {
+    saveChatDraft(char.id, input);
+  }, [char.id, input]);
 
   useEffect(() => {
     if (queue.length === 0) {
@@ -173,6 +187,8 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
     const msgText = text || input.trim();
     if (!msgText || !userTurn) return;
 
+    clearChatDraft(char.id);
+    setLastClearedDraft("");
     setUserTurn(false);
     setInput("");
 
@@ -183,7 +199,28 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
       ...newState.pendingQueue,
     ]);
     setSuggestions(newState.suggestedReplies);
-  }, [input, userTurn, state]);
+  }, [char.id, input, userTurn, state]);
+
+  const handleInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      if (input.length > 0) {
+        setLastClearedDraft(input);
+        clearChatDraft(char.id);
+        setInput("");
+      } else {
+        inputRef.current?.blur();
+      }
+      return;
+    }
+
+    if (event.key !== "Enter" || isComposing || event.nativeEvent.isComposing) {
+      return;
+    }
+
+    event.preventDefault();
+    handleSend();
+  }, [char.id, handleSend, input, isComposing]);
 
   return (
     <motion.div className="h-screen flex flex-col" style={{ background: "#f5f5f5" }}
@@ -191,7 +228,7 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
       transition={{ type: "tween", duration: 0.25 }}>
       <div className="flex-shrink-0 z-20 flex items-center px-4 py-3"
         style={{ background: "#ffffff", borderBottom: "0.5px solid #ebebeb" }}>
-        <button onClick={() => onBack(state.relationship)} className="mr-3 flex-shrink-0">
+        <button onClick={() => onBack(state.relationship)} className="mr-3 flex-shrink-0" aria-label="返回上一页">
           <svg width="10" height="18" viewBox="0 0 10 18" fill="none">
             <path d="M9 1L1 9L9 17" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -221,7 +258,7 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
         <div className="px-4 pt-3">
           <div className="max-w-lg mx-auto rounded-2xl px-4 py-3 text-[12px] leading-6"
             style={{ background: `${QQ_BLUE}10`, color: "#5f6b7a" }}>
-            已根据你的兴趣标签做了轻量注入：角色可能会在合适的时候，像真的刷到今天的话题一样自然提起。
+            已根据你的兴趣画像做了轻量注入：角色会在合适的时候，自然聊到你更容易接住的话题，方便你快速演示“懂你”的感觉。
           </div>
         </div>
       )}
@@ -248,12 +285,17 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
           <motion.div className="flex-shrink-0 px-4 py-3 flex gap-2.5 overflow-x-auto"
             style={{ background: "#ffffff", borderTop: "0.5px solid #ebebeb" }}
             initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+            <div className="max-w-lg mx-auto w-full">
+              <p className="mb-2 text-[11px] text-[#a0a8b3]">不知道怎么接时，可以先点一个系统建议。</p>
+              <div className="flex gap-2.5 overflow-x-auto">
             {suggestions.map((s, i) => (
               <button key={i} onClick={() => handleSend(s)}
                 className="flex-shrink-0 px-4 py-2.5 rounded-full text-[14px] bg-white text-[#333] border border-[#e0e0e0] active:bg-[#e5e5e5]">
                 {s}
               </button>
             ))}
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -265,16 +307,65 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
             <div className="flex-1">
               <input ref={inputRef} type="text" value={input}
                 onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleSend()}
+                maxLength={MAX_INPUT_LENGTH}
+                onKeyDown={handleInputKeyDown}
+                onCompositionStart={() => setIsComposing(true)}
+                onCompositionEnd={() => setIsComposing(false)}
                 className="w-full px-4 py-2.5 rounded-full text-[16px] border outline-none focus:border-[#ccc]"
                 style={{ lineHeight: "1.5", background: "#f2f3f5", borderColor: "#f2f3f5" }}
-                placeholder="说点什么..."
+                placeholder={`和${char.name}说点什么...`}
+                aria-label={`发送给${char.name}的消息`}
                 autoFocus />
+              <div className="mt-1 flex items-center justify-between px-2 text-[11px]" aria-live="polite">
+                <span className={inputCount > 0
+                  ? remainingCount <= 10
+                    ? "text-[#ff7a45]"
+                    : "text-[#a0a8b3]"
+                  : "text-[#a0a8b3]"}
+                >
+                  {inputCount > 0 ? `还可输入 ${remainingCount} 字 · 按 Esc 可清空` : "支持回车发送，按 Esc 可收起输入"}
+                </span>
+                {input.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLastClearedDraft(input);
+                      clearChatDraft(char.id);
+                      setInput("");
+                    }}
+                    className="text-[#8fa2b8]"
+                  >
+                    清空
+                  </button>
+                )}
+              </div>
+              {input.trim().length > 0 && (
+                <p className="mt-1 px-2 text-[11px] text-[#b0bcc8]">
+                  草稿会按角色保存在当前浏览器，下次回来可继续输入。
+                </p>
+              )}
+              {!input.trim().length && lastClearedDraft && (
+                <div className="mt-1 flex items-center justify-between gap-3 rounded-2xl bg-[#f7f9fc] px-3 py-2 text-[11px] text-[#7b8794]">
+                  <span className="truncate">刚刚清空了一段草稿，可立即恢复。</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInput(lastClearedDraft);
+                      setLastClearedDraft("");
+                      setTimeout(() => inputRef.current?.focus(), 0);
+                    }}
+                    className="flex-shrink-0 font-medium text-[#4b84c4]"
+                  >
+                    撤销清空
+                  </button>
+                </div>
+              )}
             </div>
             <button onClick={() => handleSend()}
               className="px-5 py-2.5 rounded-full text-[15px] font-medium text-white flex-shrink-0"
-              style={{ background: input.trim() ? "#0099FF" : "#c0c0c0" }}
-              disabled={!input.trim()}>
+              style={{ background: canSend ? "#0099FF" : "#c0c0c0" }}
+              disabled={!canSend}
+              aria-label="发送消息">
               发送
             </button>
           </motion.div>

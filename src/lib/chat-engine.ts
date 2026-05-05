@@ -40,7 +40,8 @@ function shouldInjectInterestTopic(state: ChatState): boolean {
   const tags = state.userProfile?.interestTags || [];
   if (tags.length === 0) return false;
   if (state.currentStageIndex > 1) return false;
-  return state.turnsInCurrentStage >= 0;
+  // Only inject after at least 1 turn of conversation so it feels natural
+  return state.turnsInCurrentStage >= 1;
 }
 
 function buildInterestInjectedMessages(state: ChatState): { messages: ChatMsg[]; topicId: string | null } {

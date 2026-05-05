@@ -3,8 +3,8 @@
 import type { TabType } from "@/types";
 
 // 精确还原QQ底部Tab栏：消息 / 频道 / 联系人 / 动态
-export default function BottomTabBar({ current, onChange, unreadTotal }: {
-  current: TabType; onChange: (t: TabType) => void; unreadTotal: number;
+export default function BottomTabBar({ current, onChange, unreadTotal, hasMomentsUpdate = false }: {
+  current: TabType; onChange: (t: TabType) => void; unreadTotal: number; hasMomentsUpdate?: boolean;
 }) {
   const tabs: { key: TabType; label: string }[] = [
     { key: "messages", label: "消息" },
@@ -19,12 +19,20 @@ export default function BottomTabBar({ current, onChange, unreadTotal }: {
   return (
     <div className="flex-shrink-0 safe-area-bottom"
       style={{ background: "#ffffff", borderTop: "0.5px solid #E8E8E8" }}>
-      <div className="flex items-center justify-around" style={{ height: 50 }}>
+      <div className="flex items-center justify-around" style={{ height: 50 }} role="tablist" aria-label="底部导航">
         {tabs.map(t => {
           const isActive = current === t.key;
           return (
             <button key={t.key} onClick={() => onChange(t.key)}
-              className="flex flex-col items-center justify-center gap-[2px] relative"
+              type="button"
+              id={`${t.key}-tab`}
+              aria-label={t.label}
+              aria-selected={isActive}
+              role="tab"
+              aria-controls={`${t.key}-panel`}
+              tabIndex={isActive ? 0 : -1}
+              title={isActive ? `当前已在${t.label}` : `切换到${t.label}`}
+              className="flex flex-col items-center justify-center gap-[2px] relative active:bg-[#f7f9fb] transition-colors"
               style={{ flex: 1, height: "100%" }}>
 
               {/* 图标 */}
@@ -70,13 +78,16 @@ export default function BottomTabBar({ current, onChange, unreadTotal }: {
                   <span className="absolute -top-[4px] -right-[8px] min-w-[16px] h-[16px] px-[4px] rounded-full flex items-center justify-center"
                     style={{ background: "#FA5151", fontSize: 10, color: "white", fontWeight: 700, lineHeight: 1 }}>
                     {unreadTotal > 99 ? "99+" : unreadTotal}
+                    <span className="sr-only">未读消息 {unreadTotal > 99 ? "99+" : unreadTotal} 条</span>
                   </span>
                 )}
 
                 {/* 红点 - 动态Tab */}
-                {t.key === "moments" && (
+                {t.key === "moments" && hasMomentsUpdate && !isActive && (
                   <span className="absolute -top-[2px] -right-[2px] w-[8px] h-[8px] rounded-full"
-                    style={{ background: "#FA5151" }} />
+                    style={{ background: "#FA5151" }}>
+                    <span className="sr-only">动态有更新</span>
+                  </span>
                 )}
               </div>
 

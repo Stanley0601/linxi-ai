@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -13,8 +13,41 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://lifescript-demo.vercel.app"),
   title: "人生剧本 | LifeScript",
-  description: "输入你的大学信息，AI为你生成一部专属互动短剧——在关键分叉点做不同选择，看见你的每一种平行人生",
+  description:
+    "输入你的大学信息，AI为你生成一部专属互动短剧——在关键分叉点做不同选择，看见你的每一种平行人生",
+  applicationName: "人生剧本 LifeScript",
+  keywords: [
+    "人生剧本",
+    "LifeScript",
+    "QQ",
+    "AI 社交",
+    "互动短剧",
+    "腾讯 PCG",
+  ],
+  authors: [{ name: "Stanley0601" }],
+  openGraph: {
+    title: "人生剧本 | LifeScript",
+    description:
+      "在 QQ 中与会主动成长的 AI 好友相遇，你说的每一句话，都可能改变 TA 的人生走向。",
+    siteName: "人生剧本 LifeScript",
+    locale: "zh_CN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "人生剧本 | LifeScript",
+    description:
+      "在 QQ 中与会主动成长的 AI 好友相遇，你说的每一句话，都可能改变 TA 的人生走向。",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({

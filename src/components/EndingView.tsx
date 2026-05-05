@@ -7,6 +7,27 @@ import { getEndingsForCharacter } from "@/lib/story-stages";
 import { QQ_BLUE, QQ_BG } from "@/lib/constants";
 import { getEndingRelationshipLine, getRelationshipColor, getRelationshipMilestone } from "@/lib/relationship-context";
 
+function buildEndingSummary(dims: [string, number][]) {
+  if (dims.length === 0) {
+    return {
+      strongest: null,
+      weakest: null,
+      summary: "这次的人生落点还没有形成清晰画像。",
+    };
+  }
+
+  const sorted = [...dims].sort((a, b) => b[1] - a[1]);
+  const strongest = sorted[0];
+  const weakest = sorted[sorted.length - 1];
+  const gap = strongest[1] - weakest[1];
+
+  const summary = gap <= 10
+    ? "这一轮的状态相对均衡，你不是靠单点爆发，而是稳稳把剧情推到了这里。"
+    : `这一轮更明显是靠「${strongest[0]}」把故事往前推，但「${weakest[0]}」还留着继续成长的空间。`;
+
+  return { strongest, weakest, summary };
+}
+
 export default function EndingView({ char, endingId, relationship, onRestart, onHome }: {
   char: Character; endingId: string; relationship?: RelationshipState | null; onRestart: () => void; onHome: () => void;
 }) {
@@ -16,6 +37,10 @@ export default function EndingView({ char, endingId, relationship, onRestart, on
   const dims = Object.entries(ending.stats);
   const colors = ["#f59e0b", "#10b981", "#3b82f6", "#ef4444", "#8b5cf6"];
   const otherEndings = comparisons.filter(c => c.endingId !== endingId);
+  const endingSummary = buildEndingSummary(dims);
+  const averageScore = dims.length > 0
+    ? Math.round(dims.reduce((sum, [, value]) => sum + value, 0) / dims.length)
+    : 0;
 
   return (
     <motion.div className="min-h-screen px-5 py-10" style={{ background: QQ_BG }}
@@ -78,6 +103,23 @@ export default function EndingView({ char, endingId, relationship, onRestart, on
               </div>
             ))}
           </div>
+          {endingSummary.strongest && endingSummary.weakest && (
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-amber-100 bg-amber-50/80 p-3">
+                <p className="text-[11px] text-amber-700 mb-1">最亮眼的一项</p>
+                <p className="text-[15px] font-semibold text-amber-950">
+                  {endingSummary.strongest[0]} · {endingSummary.strongest[1]}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[11px] text-slate-500 mb-1">还留有空间</p>
+                <p className="text-[15px] font-semibold text-slate-900">
+                  {endingSummary.weakest[0]} · {endingSummary.weakest[1]}
+                </p>
+              </div>
+            </div>
+          )}
+          <p className="mt-3 text-[12px] leading-relaxed text-[#667085]">{endingSummary.summary}</p>
         </motion.div>
 
         <motion.div className="bg-white rounded-xl p-5 mb-3 shadow-sm border-l-[3px]"
@@ -96,7 +138,7 @@ export default function EndingView({ char, endingId, relationship, onRestart, on
               <p className="text-[12px] text-white/70 mt-1 leading-relaxed">这不是唯一答案，但它是你这轮对话真正推出来的版本。</p>
             </div>
             <div className="text-right">
-              <p className="text-[22px] font-bold">{Math.round(dims.reduce((sum, [, value]) => sum + value, 0) / dims.length)}</p>
+              <p className="text-[22px] font-bold">{averageScore}</p>
               <p className="text-[10px] text-white/55">综合状态</p>
             </div>
           </div>
@@ -148,11 +190,15 @@ export default function EndingView({ char, endingId, relationship, onRestart, on
         <motion.div className="space-y-2.5 mt-6"
           initial={{ y: 15, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 1 }}>
           <button onClick={onRestart}
+            type="button"
+            aria-label="重新开始对话并尝试改变当前结局"
             className="w-full py-3 rounded-lg text-white font-medium text-[15px]"
             style={{ background: QQ_BLUE }}>
             重新对话，改变结局
           </button>
           <button onClick={onHome}
+            type="button"
+            aria-label="返回消息列表页"
             className="w-full py-3 rounded-lg font-medium text-[15px] text-[#333] bg-white shadow-sm">
             返回消息列表
           </button>

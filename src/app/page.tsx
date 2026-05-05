@@ -1,26 +1,41 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { CharacterStatus, MomentComment, MomentPost, ProactiveInboxState, RelationshipState, TabType, UserProfile } from "@/types";
 import { characters, getCharacter } from "@/lib/characters";
-import { getStagesForCharacter } from "@/lib/story-stages";
+import { getStagesForCharacter, getEndingsForCharacter } from "@/lib/story-stages";
 import { momentPosts } from "@/lib/moments-data";
 import { getTimeline } from "@/lib/timeline-data";
 import { getRandomStatus, getDailyLifeForStages } from "@/lib/daily-life";
 import { buildInterestMomentPosts, buildProactiveInterestEntry, getAffinityScore, getFreshnessLabel, getInterestSummaryLine, getRecommendedReason } from "@/lib/interest-context";
 import { getRelationshipMomentReason } from "@/lib/relationship-context";
 import {
-  saveAllProgress, loadAllProgress,
-  saveSelectedStory, loadSelectedStory,
-  loadChatHistory, clearChatHistory,
-  loadMomentState, saveMomentState,
-  saveUserProfile, loadUserProfile,
-  loadProactiveInbox, saveProactiveInbox,
-  clearProactiveInboxEntry,
-  loadUserSignals, saveUserSignals,
-  loadRelationshipState, saveRelationshipState,
   clearAllData,
+  clearChatHistory,
+  clearProactiveInboxEntry,
+  getLastResumableChatCharacterId,
+  loadAllProgress,
+  loadChatDraft,
+  loadChatHistory,
+  loadHiddenMutedChatIds,
+  loadMomentState,
+  loadMutedChatIds,
+  loadPinnedChatIds,
+  loadProactiveInbox,
+  loadRelationshipState,
+  loadSelectedStory,
+  loadUserProfile,
+  loadUserSignals,
+  saveAllProgress,
+  saveHiddenMutedChatIds,
+  saveUserSignals,
+  saveMomentState,
+  saveProactiveInbox,
+  saveRecentEndingSummary,
+  saveRelationshipState,
+  saveSelectedStory,
+  saveUserProfile,
 } from "@/lib/memory";
 import {
   Landing,
@@ -178,6 +193,15 @@ export default function Home() {
   const [proactiveInbox, setProactiveInbox] = useState<ProactiveInboxState>(() => getInitialProactiveInboxState());
   const [consumedProactiveEntry, setConsumedProactiveEntry] = useState<ProactiveInboxState>({});
   const [relationships, setRelationships] = useState<Record<string, RelationshipState>>(() => getInitialRelationships());
+  const [pinnedChatIds, setPinnedChatIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    return loadPinnedChatIds();
+  });
+  const [mutedChatIds] = useState<string[]>(() => loadMutedChatIds());
+  const [hiddenMutedChatIds, setHiddenMutedChatIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    return loadHiddenMutedChatIds();
+  });
 
   const [charProgress, setCharProgress] = useState<Record<string, {
     stageProgress: number; hasFinished: boolean; endingId?: string;
@@ -195,12 +219,21 @@ export default function Home() {
     if (userProfile) saveUserProfile(userProfile);
   }, [userProfile]);
 
+  const lastViewedMomentsRef = useRef<number | undefined>(
+    typeof window !== "undefined" ? loadUserSignals()?.lastViewedMomentsAt : undefined,
+  );
+
   useEffect(() => {
     if (!userProfile) return;
+    if (tab === "moments") {
+      lastViewedMomentsRef.current = Date.now();
+    }
+    const currentSignals = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
     saveUserSignals({
+      ...currentSignals,
       likedCharacterIds: userProfile.likedCharacterIds || [],
       likedTopicTags: userProfile.likedTopicTags || [],
-      lastViewedMomentsAt: tab === "moments" ? Date.now() : loadUserSignals()?.lastViewedMomentsAt,
+      lastViewedMomentsAt: lastViewedMomentsRef.current,
     });
   }, [userProfile, tab]);
 
@@ -211,6 +244,10 @@ export default function Home() {
   useEffect(() => {
     saveMomentState(momentState);
   }, [momentState]);
+
+  useEffect(() => {
+    saveHiddenMutedChatIds(hiddenMutedChatIds);
+  }, [hiddenMutedChatIds]);
 
   useEffect(() => {
     saveProactiveInbox(proactiveInbox);
@@ -266,7 +303,8 @@ export default function Home() {
       extraMoments.push(...derivedDailyPosts);
 
       if (userProfile?.interestTags?.length && prog.stageProgress <= 1) {
-        const currentStoryStageId = getStagesForCharacter(charId)[Math.min(prog.stageProgress, getStagesForCharacter(charId).length - 1)]?.id;
+        const charStages = getStagesForCharacter(charId);
+        const currentStoryStageId = charStages[Math.min(prog.stageProgress, charStages.length - 1)]?.id;
         if (currentStoryStageId) {
           const interestPosts = buildInterestMomentPosts(charId, currentStoryStageId, userProfile)
             .filter(post => !existingIds.has(post.id));
@@ -292,6 +330,7 @@ export default function Home() {
         ?.slice()
         .reverse()
         .find(msg => msg.type === "text" || msg.type === "narration");
+      const draftText = loadChatDraft(c.id).trim();
 
       const msgs: Record<string, { last: string; time: string; unread: number }> = {
         xiaoyu: { last: "嗨！终于加上了，我是小宇~", time: "刚刚", unread: 3 },
@@ -303,9 +342,11 @@ export default function Home() {
 
       const previewText = proactiveEntry?.unread
         ? proactiveEntry.preview
-        : lastChatMsg
-          ? `${lastChatMsg.from === "user" ? "你：" : ""}${getChatPreview(lastChatMsg.text)}`
-          : info.last;
+        : draftText
+          ? `草稿：${getChatPreview(draftText)}`
+          : lastChatMsg
+            ? `${lastChatMsg.from === "user" ? "你：" : ""}${getChatPreview(lastChatMsg.text)}`
+            : info.last;
 
       return {
         characterId: c.id,
@@ -316,6 +357,7 @@ export default function Home() {
           : savedChat?.lastUpdated
             ? formatRecentTime(savedChat.lastUpdated)
             : info.time,
+        activityTimestamp: proactiveEntry?.createdAt ?? savedChat?.lastUpdated,
         unreadCount: proactiveEntry?.unread
           ? proactiveEntry.messages.length
           : savedChat
@@ -324,6 +366,9 @@ export default function Home() {
         stageProgress: prog.stageProgress,
         hasFinished: prog.hasFinished,
         endingId: prog.endingId,
+        isPinned: pinnedChatIds.includes(c.id),
+        isMuted: mutedChatIds.includes(c.id),
+        isHiddenByMute: hiddenMutedChatIds.includes(c.id),
         isProactiveInterest: !!proactiveEntry?.unread,
         proactiveTag: proactiveEntry?.topicTag,
         interestSummary: userProfile ? getInterestSummaryLine(userProfile) : undefined,
@@ -333,15 +378,18 @@ export default function Home() {
         familiarity: relationships[c.id]?.familiarity,
         relationshipStage: relationships[c.id]?.stage,
         chemistry: relationships[c.id]?.chemistry,
+        draftPreview: draftText || undefined,
       };
     });
 
     return mapped.sort((a, b) => {
+      if ((a.isPinned ? 1 : 0) !== (b.isPinned ? 1 : 0)) return (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0);
       if (a.unreadCount !== b.unreadCount) return b.unreadCount - a.unreadCount;
+      if ((b.activityTimestamp || 0) !== (a.activityTimestamp || 0)) return (b.activityTimestamp || 0) - (a.activityTimestamp || 0);
       if ((b.affinityScore || 0) !== (a.affinityScore || 0)) return (b.affinityScore || 0) - (a.affinityScore || 0);
-      return (b.lastMessageTime || "").localeCompare(a.lastMessageTime || "");
+      return a.characterId.localeCompare(b.characterId);
     });
-  }, [charProgress, selectedStoryId, liveStatuses, proactiveInbox, userProfile, relationships]);
+  }, [charProgress, selectedStoryId, liveStatuses, proactiveInbox, userProfile, relationships, pinnedChatIds, mutedChatIds, hiddenMutedChatIds]);
 
   const unreadTotal = charStatuses.reduce((sum, s) => sum + s.unreadCount, 0);
 
@@ -379,6 +427,19 @@ export default function Home() {
       return bScore - aScore;
     });
   }, [charProgress, localMoments, selectedStoryId, momentState, relationships]);
+
+  const hasMomentsUpdate = useMemo(() => {
+    if (unreadTotal > 0) return true;
+    const lastViewedMomentsAt = loadUserSignals()?.lastViewedMomentsAt || 0;
+    const viewedToday = lastViewedMomentsAt > 0
+      && new Date(lastViewedMomentsAt).toDateString() === new Date().toDateString();
+
+    if (!viewedToday) {
+      return visibleMoments.some(post => post.time.includes("今天") || post.time === "刚刚");
+    }
+
+    return false;
+  }, [unreadTotal, visibleMoments]);
 
   const handleToggleLike = useCallback((postId: string) => {
     const post = localMoments.find(item => item.id === postId);
@@ -429,6 +490,24 @@ export default function Home() {
       ...prev,
       [charId]: { stageProgress: 4, hasFinished: true, endingId: eid },
     }));
+
+    const character = getCharacter(charId);
+    const ending = getEndingsForCharacter(charId).endings.get(eid);
+
+    if (character && ending) {
+      saveRecentEndingSummary({
+        characterId: charId,
+        characterName: character.name,
+        endingId: eid,
+        endingTitle: ending.title,
+        endingEmoji: ending.emoji,
+        relationshipStage: relationship.stage,
+        familiarity: relationship.familiarity,
+        chemistry: relationship.chemistry,
+        savedAt: Date.now(),
+      });
+    }
+
     setEndingId(eid);
     setPhase("ending");
   }, []);
@@ -533,6 +612,8 @@ export default function Home() {
     setProactiveInbox({});
     setConsumedProactiveEntry({});
     setRelationships(getDefaultRelationships());
+    setPinnedChatIds([]);
+    setHiddenMutedChatIds([]);
   }, []);
 
   const activeChar = activeCharId ? getCharacter(activeCharId) : null;
@@ -559,27 +640,48 @@ export default function Home() {
         )}
 
         {phase === "app" && (
-          <motion.div key="app" className="h-screen flex flex-col"
+          <motion.div key={`app-${chatKey}`} className="h-screen flex flex-col"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             {tab === "messages" && (
-              <MessageListPage
-                statuses={charStatuses}
-                onSelectChat={handleOpenChat}
-                onSelectProfile={(cid) => {
-                  setViewProfileId(cid);
-                  setPhase("profile");
-                }}
-              />
+              <section id="messages-panel" role="tabpanel" aria-labelledby="messages-tab" className="flex-1 min-h-0">
+                <MessageListPage
+                  statuses={charStatuses}
+                  onSelectChat={handleOpenChat}
+                  onSelectProfile={(cid) => {
+                    setViewProfileId(cid);
+                    setPhase("profile");
+                  }}
+                  onPinnedChatsChange={setPinnedChatIds}
+                  onHiddenMutedChatsChange={setHiddenMutedChatIds}
+                />
+              </section>
             )}
             {tab === "moments" && (
-              <MomentsFeed
-                posts={visibleMoments}
-                onToggleLike={handleToggleLike}
-                onAddComment={handleAddComment}
-              />
+              <section id="moments-panel" role="tabpanel" aria-labelledby="moments-tab" className="flex-1 min-h-0">
+                <MomentsFeed
+                  posts={visibleMoments}
+                  onToggleLike={handleToggleLike}
+                  onAddComment={handleAddComment}
+                />
+              </section>
             )}
-            {tab === "profile" && <MyProfileTab userProfile={userProfile} onResetAll={handleResetAll} />}
-            <BottomTabBar current={tab} onChange={setTab} unreadTotal={unreadTotal} />
+            {tab === "profile" && (
+              <section id="profile-panel" role="tabpanel" aria-labelledby="profile-tab" className="flex-1 min-h-0">
+                <MyProfileTab
+                  userProfile={userProfile}
+                  onResetAll={handleResetAll}
+                  onResumeLastChat={() => {
+                    const resumableCharacterId = getLastResumableChatCharacterId();
+                    const resumableStatus = (resumableCharacterId
+                      ? charStatuses.find((status) => status.characterId === resumableCharacterId)
+                      : null) || charStatuses.find((status) => Boolean(status.activityTimestamp)) || charStatuses[0];
+                    if (!resumableStatus) return;
+                    handleOpenChat(resumableStatus.characterId);
+                  }}
+                />
+              </section>
+            )}
+            <BottomTabBar current={tab} onChange={setTab} unreadTotal={unreadTotal} hasMomentsUpdate={hasMomentsUpdate} />
           </motion.div>
         )}
 

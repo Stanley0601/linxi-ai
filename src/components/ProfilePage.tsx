@@ -18,7 +18,12 @@ export default function ProfilePage({ char, status, onBack, onViewTimeline }: {
         <div className="absolute inset-0" style={{
           background: `linear-gradient(135deg, ${char.avatarBg}, ${QQ_BLUE}40)`,
         }} />
-        <button onClick={onBack} className="absolute top-12 left-4 z-10 w-8 h-8 rounded-full bg-black/20 flex items-center justify-center">
+        <button
+          onClick={onBack}
+          type="button"
+          aria-label="返回上一页"
+          className="absolute top-12 left-4 z-10 w-8 h-8 rounded-full bg-black/20 flex items-center justify-center"
+        >
           <svg width="8" height="14" viewBox="0 0 8 14" fill="none">
             <path d="M7 1L1 7L7 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -120,10 +125,14 @@ export default function ProfilePage({ char, status, onBack, onViewTimeline }: {
         </div>
 
         {status.hasFinished && status.endingId && onViewTimeline && (
-          <motion.button onClick={onViewTimeline}
+          <motion.button
+            onClick={onViewTimeline}
+            type="button"
+            aria-label={`查看 ${char.name} 的人生故事时间线`}
             className="w-full py-3.5 rounded-xl text-white font-medium text-[15px]"
             style={{ background: `linear-gradient(135deg, ${QQ_BLUE}, #0099e5)` }}
-            whileTap={{ scale: 0.97 }}>
+            whileTap={{ scale: 0.97 }}
+          >
             🕐 查看TA的人生故事
           </motion.button>
         )}

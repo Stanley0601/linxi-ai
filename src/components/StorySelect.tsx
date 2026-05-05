@@ -51,6 +51,10 @@ const storyCards: StoryCard[] = [
 ];
 
 export default function StorySelect({ onSelect }: { onSelect: (characterId: string) => void }) {
+  const handleCardActivate = (characterId: string) => {
+    onSelect(characterId);
+  };
+
   return (
     <motion.div className="min-h-screen px-5 py-10 safe-area-top"
       style={{ background: "linear-gradient(180deg, #0a0a1a 0%, #111827 100%)" }}
@@ -68,9 +72,10 @@ export default function StorySelect({ onSelect }: { onSelect: (characterId: stri
         {/* Story Cards */}
         <div className="space-y-5">
           {storyCards.map((card, i) => (
-            <motion.div
+            <motion.button
               key={card.character.id}
-              className="relative overflow-hidden rounded-2xl cursor-pointer active:scale-[0.98] transition-transform"
+              type="button"
+              className="relative w-full overflow-hidden rounded-2xl text-left cursor-pointer active:scale-[0.98] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111827]"
               style={{
                 background: "rgba(255,255,255,0.06)",
                 backdropFilter: "blur(20px)",
@@ -79,8 +84,10 @@ export default function StorySelect({ onSelect }: { onSelect: (characterId: stri
               initial={{ y: 30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2 + i * 0.12 }}
-              onClick={() => onSelect(card.character.id)}
+              onClick={() => handleCardActivate(card.character.id)}
               whileTap={{ scale: 0.97 }}
+              aria-label={`进入${card.character.name}的人生剧本：${card.tagline}`}
+              aria-describedby={`${card.character.id}-story-hint`}
             >
               {/* Card content */}
               <div className="p-6">
@@ -135,8 +142,11 @@ export default function StorySelect({ onSelect }: { onSelect: (characterId: stri
                     进入故事
                   </motion.div>
                 </div>
+                <span id={`${card.character.id}-story-hint`} className="sr-only">
+                  预计时长 {card.duration}，难度 {card.difficulty}，按回车即可进入。
+                </span>
               </div>
-            </motion.div>
+            </motion.button>
           ))}
         </div>
 

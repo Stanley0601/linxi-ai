@@ -41,6 +41,10 @@ body {
   letter-spacing: 0.01em;
 }
 
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
 /* Scrollbar - minimal */
 ::-webkit-scrollbar {
   width: 0px;
@@ -140,4 +144,15 @@ body {
   border-color: rgba(18,183,245,0.3);
   transform: translateY(-4px);
   box-shadow: 0 8px 30px rgba(18,183,245,0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

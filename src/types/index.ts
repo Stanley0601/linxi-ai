@@ -148,6 +148,18 @@ export interface EndingComparison {
   outcome?: EndingOutcomePreview;
 }
 
+export interface RecentEndingSummary {
+  characterId: string;
+  characterName: string;
+  endingId: string;
+  endingTitle: string;
+  endingEmoji: string;
+  relationshipStage?: FamiliarityStage;
+  familiarity?: number;
+  chemistry?: number;
+  savedAt: number;
+}
+
 // ======= v5 新增类型 =======
 
 /** 朋友圈/QQ空间动态 */
@@ -180,10 +192,14 @@ export interface CharacterStatus {
   onlineStatus: string;      // "在线" | "在图书馆" | 等
   lastMessage: string;       // 消息列表最后一条消息预览
   lastMessageTime: string;   // "刚刚" | "10:32" | "昨天"
+  activityTimestamp?: number;
   unreadCount: number;
   stageProgress: number;     // 0-4 剧情进度
   hasFinished: boolean;
   endingId?: string;
+  isPinned?: boolean;
+  isMuted?: boolean;
+  isHiddenByMute?: boolean;
   isProactiveInterest?: boolean;
   proactiveTag?: InterestTag;
   interestSummary?: string;
@@ -193,6 +209,7 @@ export interface CharacterStatus {
   familiarity?: number;
   relationshipStage?: FamiliarityStage;
   chemistry?: number;
+  draftPreview?: string;
 }
 
 /** 人生时间线节点 */
@@ -229,6 +246,33 @@ export type ProactiveInboxState = Record<string, ProactiveInboxEntry>;
 
 /** Tab 类型 */
 export type TabType = "messages" | "moments" | "profile";
+
+export interface LocalStorageSummary {
+  hasUserProfile: boolean;
+  chatHistoryCount: number;
+  finishedStoryCount: number;
+  likedMomentsCount: number;
+  commentCount: number;
+  draftCount: number;
+  hasSavedSearch: boolean;
+  hasSavedQuickFilter: boolean;
+  hasSelectedStory: boolean;
+  hasRelationships: boolean;
+  hasProactiveInbox: boolean;
+  hasMomentsFilter: boolean;
+  hasRecentChat: boolean;
+  lastOpenedChatAt: number | null;
+  lastResumableChatCharacterId: string | null;
+  lastResumableChatCharacterName: string | null;
+  lastMessageSearch: string | null;
+  lastRecentMessageSearchTag: string | null;
+  pinnedChatCount: number;
+  mutedChatCount: number;
+  hiddenMutedChatCount: number;
+  recentMessageSearchTagCount: number;
+  recentInteractionChatCount: number;
+  recentEndingSummary: RecentEndingSummary | null;
+}
 
 /** App 全局状态 */
 export interface AppState {

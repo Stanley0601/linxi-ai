@@ -30,6 +30,7 @@ export default function InterestSelect({
     if (selected.length > 5) return "最多选 5 个，保持画像轻一点更自然。";
     return `已选 ${selected.length} 个，刚好适合做演示。`;
   }, [selected.length]);
+  const canReset = selected.length > 0;
 
   const toggleTag = (tag: InterestTag) => {
     setSelected(prev => {
@@ -48,7 +49,11 @@ export default function InterestSelect({
       exit={{ opacity: 0 }}
     >
       <div className="max-w-md mx-auto">
-        <button onClick={onBack} className="text-white/60 text-[14px] mb-6">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-white/60 text-[14px] mb-6 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-lg"
+        >
           ← 返回重选剧本
         </button>
 
@@ -76,8 +81,10 @@ export default function InterestSelect({
               return (
                 <button
                   key={tag}
+                  type="button"
                   onClick={() => toggleTag(tag)}
-                  className="px-4 py-2.5 rounded-full text-[14px] transition-all"
+                  aria-pressed={active}
+                  className="px-4 py-2.5 rounded-full text-[14px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                   style={{
                     background: active ? QQ_BLUE : "rgba(255,255,255,0.06)",
                     color: active ? "#fff" : "rgba(255,255,255,0.78)",
@@ -91,6 +98,24 @@ export default function InterestSelect({
             })}
           </div>
 
+          <div className="flex items-center justify-between gap-3 mb-5">
+            <p className="text-[12px] text-white/35" aria-live="polite">{hintText}</p>
+            <button
+              type="button"
+              onClick={() => setSelected([])}
+              disabled={!canReset}
+              className="shrink-0 rounded-full px-3 py-1.5 text-[12px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              style={{
+                background: canReset ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)",
+                color: canReset ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.28)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                cursor: canReset ? "pointer" : "not-allowed",
+              }}
+            >
+              清空重选
+            </button>
+          </div>
+
           <div className="mb-5">
             <p className="text-[12px] text-white/35 mb-3">你现在常住或最关心的城市</p>
             <div className="flex flex-wrap gap-2.5">
@@ -99,8 +124,10 @@ export default function InterestSelect({
                 return (
                   <button
                     key={option}
+                    type="button"
                     onClick={() => setCity(option)}
-                    className="px-4 py-2 rounded-full text-[13px] transition-all"
+                    aria-pressed={active}
+                    className="px-4 py-2 rounded-full text-[13px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                     style={{
                       background: active ? "rgba(18,183,245,0.18)" : "rgba(255,255,255,0.04)",
                       color: active ? "#fff" : "rgba(255,255,255,0.72)",
@@ -114,8 +141,6 @@ export default function InterestSelect({
             </div>
           </div>
 
-          <p className="text-[12px] text-white/35 mb-6">{hintText}</p>
-
           <div
             className="rounded-2xl px-4 py-4 mb-6"
             style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.06)" }}
@@ -128,9 +153,10 @@ export default function InterestSelect({
           </div>
 
           <button
+            type="button"
             onClick={() => canContinue && onConfirm({ tags: selected, city })}
             disabled={!canContinue}
-            className="w-full py-3.5 rounded-2xl text-[15px] font-semibold text-white"
+            className="w-full py-3.5 rounded-2xl text-[15px] font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             style={{
               background: canContinue ? QQ_BLUE : "rgba(255,255,255,0.14)",
               opacity: canContinue ? 1 : 0.6,

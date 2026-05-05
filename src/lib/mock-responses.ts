@@ -183,7 +183,7 @@ export function getMockResponse(
   return {
     replies,
     emotion: intent,
-    shouldAdvanceStage: data.advance || stageIndex >= totalStages - 1,
+    shouldAdvanceStage: data.advance,
     nextStageId: null,
     suggestedReplies:
       intent === "encourage"

@@ -1,7 +1,8 @@
 // 对话记忆持久化模块
 // 使用 localStorage 保存对话历史、角色进度、用户选择
 
-import type { ChatMsg, InterestTag, MomentComment, ProactiveInboxState, RelationshipState, UserProfile } from "@/types";
+import type { ChatMsg, InterestTag, LocalStorageSummary, MomentComment, ProactiveInboxState, RecentEndingSummary, RelationshipState, UserProfile } from "@/types";
+import { getCharacter } from "@/lib/characters";
 
 const STORAGE_KEY_PREFIX = "lifescript_";
 
@@ -109,6 +110,19 @@ export interface UserSignals {
   likedCharacterIds: string[];
   likedTopicTags: InterestTag[];
   lastViewedMomentsAt?: number;
+  lastMessageSearch?: string;
+  lastMessageQuickFilter?: "all" | "unread" | "resumable" | "draft" | "warm" | "pinned" | "muted";
+  lastMomentsFilter?: "all" | "highlighted" | "warm";
+  lastOpenedChatCharacterId?: string;
+  lastOpenedChatAt?: number;
+  chatDrafts?: Record<string, string>;
+  pinnedChatIds?: string[];
+  mutedChatIds?: string[];
+  hiddenMutedChatIds?: string[];
+  recentMessageSearchTags?: string[];
+  prioritizeRecentChats?: boolean;
+  prioritizeRecentInteractions?: boolean;
+  expandMessageOverview?: boolean;
 }
 
 export function saveUserSignals(signals: UserSignals): void {
@@ -119,12 +133,286 @@ export function loadUserSignals(): UserSignals | null {
   return getItem<UserSignals | null>("user_signals", null);
 }
 
+export function saveLastMessageSearch(query: string): void {
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  saveUserSignals({
+    ...current,
+    lastMessageSearch: query,
+  });
+}
+
+export function loadLastMessageSearch(): string {
+  return loadUserSignals()?.lastMessageSearch || "";
+}
+
+export function saveLastMessageQuickFilter(filter: "all" | "unread" | "resumable" | "draft" | "warm" | "pinned" | "muted"): void {
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  saveUserSignals({
+    ...current,
+    lastMessageQuickFilter: filter,
+  });
+}
+
+export function loadLastMessageQuickFilter(): "all" | "unread" | "resumable" | "draft" | "warm" | "pinned" | "muted" {
+  return loadUserSignals()?.lastMessageQuickFilter || "all";
+}
+
+export function saveRecentMessageSearchTag(tag: InterestTag | string): string[] {
+  const normalizedTag = tag.trim();
+  if (!normalizedTag) return loadRecentMessageSearchTags();
+
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  const previous = current.recentMessageSearchTags || [];
+  const deduped = previous.filter((item) => item !== normalizedTag);
+  const next = [normalizedTag, ...deduped].slice(0, 6);
+
+  saveUserSignals({
+    ...current,
+    recentMessageSearchTags: next,
+  });
+
+  return next;
+}
+
+export function loadRecentMessageSearchTags(): string[] {
+  return loadUserSignals()?.recentMessageSearchTags || [];
+}
+
+export function clearRecentMessageSearchTags(): void {
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  if (!current.recentMessageSearchTags?.length) return;
+  saveUserSignals({
+    ...current,
+    recentMessageSearchTags: [],
+  });
+}
+
+export function saveLastMomentsFilter(filter: "all" | "highlighted" | "warm"): void {
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  saveUserSignals({
+    ...current,
+    lastMomentsFilter: filter,
+  });
+}
+
+export function loadLastMomentsFilter(): "all" | "highlighted" | "warm" {
+  return loadUserSignals()?.lastMomentsFilter || "all";
+}
+
+export function saveLastOpenedChatCharacterId(characterId: string): void {
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  saveUserSignals({
+    ...current,
+    lastOpenedChatCharacterId: characterId,
+    lastOpenedChatAt: Date.now(),
+  });
+}
+
+export function loadLastOpenedChatCharacterId(): string | null {
+  return loadUserSignals()?.lastOpenedChatCharacterId || null;
+}
+
+export function loadLastOpenedChatAt(): number | null {
+  return loadUserSignals()?.lastOpenedChatAt || null;
+}
+
+export function savePrioritizeRecentChats(enabled: boolean): void {
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  saveUserSignals({
+    ...current,
+    prioritizeRecentChats: enabled,
+  });
+}
+
+export function loadPrioritizeRecentChats(): boolean {
+  return loadUserSignals()?.prioritizeRecentChats ?? true;
+}
+
+export function savePrioritizeRecentInteractions(enabled: boolean): void {
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  saveUserSignals({
+    ...current,
+    prioritizeRecentInteractions: enabled,
+  });
+}
+
+export function loadPrioritizeRecentInteractions(): boolean {
+  return loadUserSignals()?.prioritizeRecentInteractions ?? true;
+}
+
+export function saveExpandMessageOverview(expanded: boolean): void {
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  saveUserSignals({
+    ...current,
+    expandMessageOverview: expanded,
+  });
+}
+
+export function loadExpandMessageOverview(): boolean {
+  return loadUserSignals()?.expandMessageOverview ?? false;
+}
+
+export function isRecentChatWithinWindow(timestamp: number | null, windowMs: number): boolean {
+  if (!timestamp) return false;
+  return Date.now() - timestamp < windowMs;
+}
+
+export function savePinnedChatIds(characterIds: string[]): void {
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  saveUserSignals({
+    ...current,
+    pinnedChatIds: Array.from(new Set(characterIds)),
+  });
+}
+
+export function loadPinnedChatIds(): string[] {
+  return loadUserSignals()?.pinnedChatIds || [];
+}
+
+export function togglePinnedChatId(characterId: string): string[] {
+  const current = new Set(loadPinnedChatIds());
+  if (current.has(characterId)) {
+    current.delete(characterId);
+  } else {
+    current.add(characterId);
+  }
+
+  const next = Array.from(current);
+  savePinnedChatIds(next);
+  return next;
+}
+
+export function saveMutedChatIds(characterIds: string[]): void {
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  saveUserSignals({
+    ...current,
+    mutedChatIds: Array.from(new Set(characterIds)),
+  });
+}
+
+export function loadMutedChatIds(): string[] {
+  return loadUserSignals()?.mutedChatIds || [];
+}
+
+export function toggleMutedChatId(characterId: string): string[] {
+  const current = new Set(loadMutedChatIds());
+  if (current.has(characterId)) {
+    current.delete(characterId);
+  } else {
+    current.add(characterId);
+  }
+
+  const next = Array.from(current);
+  saveMutedChatIds(next);
+  return next;
+}
+
+export function saveHiddenMutedChatIds(characterIds: string[]): void {
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  saveUserSignals({
+    ...current,
+    hiddenMutedChatIds: Array.from(new Set(characterIds)),
+  });
+}
+
+export function loadHiddenMutedChatIds(): string[] {
+  return loadUserSignals()?.hiddenMutedChatIds || [];
+}
+
+export function toggleHiddenMutedChatId(characterId: string): string[] {
+  const current = new Set(loadHiddenMutedChatIds());
+  if (current.has(characterId)) {
+    current.delete(characterId);
+  } else {
+    current.add(characterId);
+  }
+
+  const next = Array.from(current);
+  saveHiddenMutedChatIds(next);
+  return next;
+}
+
+export function saveChatDraft(characterId: string, draft: string): void {
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  const nextDrafts = { ...(current.chatDrafts || {}) };
+
+  if (draft.trim()) {
+    nextDrafts[characterId] = draft;
+  } else {
+    delete nextDrafts[characterId];
+  }
+
+  saveUserSignals({
+    ...current,
+    chatDrafts: nextDrafts,
+  });
+}
+
+export function loadChatDraft(characterId: string): string {
+  return loadUserSignals()?.chatDrafts?.[characterId] || "";
+}
+
+export function clearChatDraft(characterId: string): void {
+  saveChatDraft(characterId, "");
+}
+
+export function getSavedDraftCount(): number {
+  return Object.values(loadUserSignals()?.chatDrafts || {}).filter((draft) => Boolean(draft.trim())).length;
+}
+
+export function getRecentInteractionChatCount(): number {
+  const progress = loadAllProgress() || {};
+
+  return Object.keys(progress).filter((characterId) => {
+    const history = loadChatHistory(characterId);
+    if (history?.messages.length) return true;
+    if (loadChatDraft(characterId).trim()) return true;
+
+    const inbox = loadProactiveInbox();
+    if (inbox?.[characterId]?.unread) return true;
+
+    return false;
+  }).length;
+}
+
+export function getLastResumableChatCharacterId(): string | null {
+  const lastOpenedCharacterId = loadLastOpenedChatCharacterId();
+  if (lastOpenedCharacterId && loadChatHistory(lastOpenedCharacterId)?.messages.length) {
+    return lastOpenedCharacterId;
+  }
+
+  const progress = loadAllProgress() || {};
+  const candidates = Object.keys(progress)
+    .map((characterId) => ({
+      characterId,
+      history: loadChatHistory(characterId),
+    }))
+    .filter((item) => (item.history?.messages.length || 0) > 0)
+    .sort((a, b) => (b.history?.lastUpdated || 0) - (a.history?.lastUpdated || 0));
+
+  return candidates[0]?.characterId || null;
+}
+
+export function getLastResumableChatCharacterName(): string | null {
+  const characterId = getLastResumableChatCharacterId();
+  if (!characterId) return null;
+  return getCharacter(characterId)?.name || null;
+}
+
 export function saveRelationshipState(state: Record<string, RelationshipState>): void {
   setItem("relationships", state);
 }
 
 export function loadRelationshipState(): Record<string, RelationshipState> | null {
   return getItem<Record<string, RelationshipState> | null>("relationships", null);
+}
+
+export function saveRecentEndingSummary(summary: RecentEndingSummary): void {
+  setItem("recent_ending_summary", summary);
+}
+
+export function loadRecentEndingSummary(): RecentEndingSummary | null {
+  return getItem<RecentEndingSummary | null>("recent_ending_summary", null);
 }
 
 // ============================================
@@ -162,6 +450,52 @@ export function saveMomentState(state: MomentState): void {
 
 export function loadMomentState(): MomentState | null {
   return getItem<MomentState | null>("moments", null);
+}
+
+export function getLocalStorageSummary(): LocalStorageSummary {
+  const progress = loadAllProgress() || {};
+  const momentState = loadMomentState();
+  const proactiveInbox = loadProactiveInbox();
+  const relationships = loadRelationshipState();
+  const recentEndingSummary = loadRecentEndingSummary();
+  const lastResumableChatCharacterId = getLastResumableChatCharacterId();
+  const draftCount = getSavedDraftCount();
+  const lastMessageSearch = loadLastMessageSearch().trim();
+  const recentInteractionChatCount = getRecentInteractionChatCount();
+  const recentMessageSearchTags = loadRecentMessageSearchTags();
+  const lastRecentMessageSearchTag = recentMessageSearchTags.at(-1) || null;
+
+  const chatHistoryCount = Object.keys(progress).filter((characterId) => Boolean(loadChatHistory(characterId))).length;
+  const finishedStoryCount = Object.values(progress).filter((item) => item.hasFinished).length;
+  const likedMomentsCount = momentState?.likedPosts.length || 0;
+  const commentCount = Object.values(momentState?.comments || {}).reduce((sum, comments) => sum + comments.length, 0);
+
+  return {
+    hasUserProfile: Boolean(loadUserProfile()),
+    chatHistoryCount,
+    finishedStoryCount,
+    likedMomentsCount,
+    commentCount,
+    draftCount,
+    hasSavedSearch: Boolean(loadLastMessageSearch()),
+    hasSavedQuickFilter: loadLastMessageQuickFilter() !== "all",
+    hasSelectedStory: Boolean(loadSelectedStory()),
+    hasRelationships: Boolean(relationships && Object.keys(relationships).length > 0),
+    hasProactiveInbox: Boolean(proactiveInbox && Object.keys(proactiveInbox).length > 0),
+    hasMomentsFilter: loadLastMomentsFilter() !== "all",
+    hasRecentChat: Boolean(lastResumableChatCharacterId),
+    lastOpenedChatAt: loadLastOpenedChatAt(),
+    lastResumableChatCharacterId,
+    lastResumableChatCharacterName: lastResumableChatCharacterId ? (getCharacter(lastResumableChatCharacterId)?.name || null) : null,
+    lastMessageSearch: lastMessageSearch || null,
+    lastRecentMessageSearchTag,
+    pinnedChatCount: loadPinnedChatIds().length,
+    mutedChatCount: loadMutedChatIds().length,
+    hiddenMutedChatCount: loadHiddenMutedChatIds().length,
+    recentMessageSearchTagCount: loadRecentMessageSearchTags().length,
+    recentInteractionChatCount,
+    recentEndingSummary,
+  };
 }
 
 // ============================================

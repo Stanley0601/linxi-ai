@@ -17,28 +17,36 @@ lifescript/
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx          # 根布局
-│   │   ├── globals.css         # 微信风格全局样式
-│   │   ├── page.tsx            # 主状态机（Landing → Select → Chat → Ending）
+│   │   ├── globals.css         # 全局样式（QQ 风格演示基线）
+│   │   ├── page.tsx            # 主状态机（Landing → Select → Interest → App/Chat/Profile/Timeline/Ending）
 │   │   └── api/
 │   │       └── chat/
-│   │           └── route.ts    # LLM API Route（预留，当前mock）
+│   │           └── route.ts    # 聊天 API（支持 mock / LLM 扩展）
 │   ├── components/
 │   │   ├── Landing.tsx         # 开屏页
-│   │   ├── CharSelect.tsx      # 角色选择页
-│   │   ├── ChatView.tsx        # 微信式聊天主界面
-│   │   ├── MsgBubble.tsx       # 消息气泡组件
-│   │   ├── SuggestedReplies.tsx # 建议回复条
-│   │   ├── TypingIndicator.tsx  # 正在输入组件
-│   │   └── EndingView.tsx      # 结局页 + 对比
+│   │   ├── StorySelect.tsx     # 角色选择页
+│   │   ├── InterestSelect.tsx  # 兴趣选择页
+│   │   ├── MessageListPage.tsx # 消息列表页
+│   │   ├── ChatView.tsx        # QQ 风格聊天界面
+│   │   ├── MomentsFeed.tsx     # 动态流
+│   │   ├── ProfilePage.tsx     # 角色资料页
+│   │   ├── TimelineView.tsx    # 人生时间线
+│   │   ├── EndingView.tsx      # 结局页 + 对比
+│   │   ├── MyProfileTab.tsx    # 我的资料页
+│   │   └── BottomTabBar.tsx    # 底部导航
 │   ├── lib/
-│   │   ├── characters.ts      # 角色定义
-│   │   ├── story-stages.ts    # 剧情阶段定义（预设节点）
-│   │   ├── prompts.ts         # LLM System Prompt 模板
-│   │   ├── chat-engine.ts     # 对话引擎（管理状态 + 调用API + 剧情推进）
-│   │   └── mock-responses.ts  # Mock回复（API未接入时用）
+│   │   ├── characters.ts       # 角色定义
+│   │   ├── story-stages.ts     # 剧情阶段定义（预设节点）
+│   │   ├── prompts.ts          # Prompt 模板
+│   │   ├── chat-engine.ts      # 对话引擎（管理状态 + 调用API + 剧情推进）
+│   │   ├── memory.ts           # 本地存储与进度恢复
+│   │   ├── proactive-messages.ts # 主动消息构建
+│   │   ├── relationship-context.ts # 关系上下文
+│   │   ├── weather-context.ts  # 天气关怀上下文
+│   │   └── mock-responses.ts   # Mock 回复（API未接入时使用）
 │   └── types/
-│       └── index.ts           # 全局类型定义
-├── .env.local                  # API Key（预留）
+│       └── index.ts            # 全局类型定义
+├── .env.local                  # API Key（可选）
 └── next.config.ts
 ```
 
