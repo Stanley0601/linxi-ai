@@ -205,6 +205,9 @@ OPENAI_API_KEY=your_key_here
 - `docs/SAFE_DOC_PATCH_PLAYBOOK.md`：当本轮决定继续补文档而不是碰业务代码时，用于快速判断优先补哪类文档、如何避免重复与做到哪一步就该停下的文档补丁手册
 - `docs/ITERATION_DIRTY_WORKSPACE_SEVERITY_CARD.md`：在工作区已不干净但工程验证通过时，用于快速判断当前属于轻度脏、中度脏还是高风险脏的脏度分级速卡
 - `docs/HIGH_RISK_DIRTY_WORKSPACE_STOP_CARD.md`：当工作区已进入高风险脏状态时，用于快速决定为什么应该停手、还能安全交付什么以及通知里必须说明哪些边界的停手速卡
+- `docs/ITERATION_UNTRACKED_DIRECTORY_SIGNAL_CARD.md`：当 `git status --short --branch` 已出现 `?? 目录/文件` 信号时，用于快速判断新增未跟踪内容是在提示独立增量，还是边界尚未收敛的风险速卡
+- `docs/ITERATION_AHEAD_SIGNAL_CARD.md`：当 `git status --short --branch` 已出现 `ahead N` 信号时，用于快速判断本地领先远端意味着什么，以及本轮为什么不应自动越过 push / 历史整理边界
+- `docs/ITERATION_DIRTY_SIGNAL_COMBO_CARD.md`：当 `ahead N`、未跟踪内容与已有文件修改同时出现时，用于快速判断当前是否已进入应优先停手说明的组合脏区
 - `docs/UNCOMMITTED_CHANGE_OWNERSHIP_CARD.md`：当下一步是否继续推进已经取决于现有未提交改动的归属、风险层与保留策略时，用于先做人肉分拣而不是继续硬改的归属速卡
 - `docs/SMOKE_TEST_MATRIX.md`：工程验证通过后用于快速确认核心演示链路是否仍可讲述的最小冒烟检查矩阵
 - `docs/PRODUCTION_PREVIEW_RUNBOOK.md`：构建通过后在本地用生产模式再次确认真实交付形态的预演手册

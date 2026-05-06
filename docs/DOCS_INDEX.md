@@ -166,6 +166,18 @@
 - `docs/HIGH_RISK_DIRTY_WORKSPACE_STOP_CARD.md`
 - 适用：build / lint 已通过，但当前工作区已进入高风险脏状态，想先明确为什么不该继续自动扩改、还能安全交付什么以及通知里该说明哪些停手理由
 
+### 看到了 `?? docs/`、`?? .github/` 这类未跟踪目录信号，想先判断它是在提示什么风险
+- `docs/ITERATION_UNTRACKED_DIRECTORY_SIGNAL_CARD.md`
+- 适用：`git status --short --branch` 已出现 `?? 目录/文件`，且 build / lint 已通过，想先判断这些未跟踪内容是独立增量还是边界尚未收敛的风险信号
+
+### 看到了 `ahead 1`、`ahead 2` 这类领先远端信号，想先判断本轮还能不能继续自动推进
+- `docs/ITERATION_AHEAD_SIGNAL_CARD.md`
+- 适用：`git status --short --branch` 已出现 `ahead N`，且 build / lint 已通过，想先判断这是不是本地提交边界提醒，以及为什么本轮不应自动处理 push / 历史整理
+
+### 多种风险提醒同时出现，想先判断当前是不是已经进入“组合脏区”
+- `docs/ITERATION_DIRTY_SIGNAL_COMBO_CARD.md`
+- 适用：`ahead N`、未跟踪内容与已有文件修改同时出现，且 build / lint 已通过，想先判断本轮是否还存在真正独立的单点增量，还是应直接收尾并主动通知
+
 ### 已经判断为高风险脏，但还想先把未提交改动按主题与保留策略做粗分
 - `docs/UNCOMMITTED_CHANGE_OWNERSHIP_CARD.md`
 - 适用：build / lint 已通过，但下一步是否继续推进已经取决于现有未提交改动的归属、风险层与保留策略，想先做人肉分拣而不是继续硬改

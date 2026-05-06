@@ -621,3 +621,80 @@ npm run verify
 - 验证结果：`npm run build` ✅；`npm run lint` ✅
 - 风险说明：本轮仅新增独立文档与索引入口，未触碰核心页面、共享类型、状态机、恢复逻辑或 Git 历史；考虑到工作区仍高脏，完成文档补丁后主动停手
 - 后续建议：若下一轮继续推进，优先先复核现有未提交改动的归属与重叠风险；若没有足够独立的候选项，可直接采用零改动收尾而不是为了推进感强行扩改
+
+## 2026-05-05 15:17
+
+- 分支：`feat/v12-unified-baseline`
+- Git 状态概览：当前分支正确，`npm run build` 与 `npm run lint` 已通过，但工作区仍存在多个核心业务文件并伴随 `?? docs/`、`?? .github/` 等未跟踪目录信号；属于高风险脏工作区，继续进入业务代码前应先确认新增内容的边界与归属
+- 本轮目标：执行积极型自动迭代固定检查，并在不触碰现有高风险业务改动边界的前提下，补一份专门解释未跟踪目录信号的独立速卡，降低后续把 `?? 目录/文件` 误判成可随手扩改区域的风险
+- 改动类型：文档完善
+- 具体改动：新增 `docs/ITERATION_UNTRACKED_DIRECTORY_SIGNAL_CARD.md`，整理 `git status --short --branch` 出现 `?? docs/`、`?? .github/` 等未跟踪目录时的最小判断顺序、风险上调条件、推荐动作、通知模板与停手条件；同时更新 `docs/DOCS_INDEX.md` 增加该文档入口
+- 验证结果：`npm run build` ✅；`npm run lint` ✅
+- 风险说明：本轮仅新增独立文档与索引入口，未触碰 `src/app/page.tsx`、`src/lib/memory.ts`、`src/types/index.ts`、`src/app/api/chat/route.ts` 等高敏感改动边界，也未执行强推、历史改写或跨文件业务补丁；整体仍保持在低风险文档补丁范围内
+- 后续建议：若下一轮继续推进，优先先确认 `?? docs/` 与 `?? .github/` 内文件的主题归属与保留策略；在边界未厘清前，不建议继续自动进入核心业务文件或继续扩展平行改动
+
+## 2026-05-05 16:17
+
+- 分支：`feat/v12-unified-baseline`
+- Git 状态概览：当前分支正确，且相对远端 `ahead 2`；本轮实际工作区仅见 `docs/DOCS_INDEX.md`、`docs/ITERATION_LOG.md` 已修改与 `docs/ITERATION_UNTRACKED_DIRECTORY_SIGNAL_CARD.md` 未跟踪，和上一轮日志里“包含多个核心业务文件并伴随未跟踪目录”的描述已不一致
+- 本轮目标：执行积极型自动迭代固定检查，并在不引入新的平行主题、不进入核心业务代码的前提下，优先补齐当前未跟踪文档的最小索引闭环
+- 改动类型：文档完善
+- 具体改动：复核当前 Git 状态、`npm run build` 与 `npm run lint` 后，确认 `docs/ITERATION_UNTRACKED_DIRECTORY_SIGNAL_CARD.md` 已进入 `docs/DOCS_INDEX.md` 与本日志，但 README 仍缺入口；因此仅补充 `README.md` 中该文档的相关文档列表入口，并在完成后停止继续扩改
+- 验证结果：`npm run build` ✅；`npm run lint` ✅
+- 风险说明：本轮仅补齐现有文档体系中的单点索引缺口，没有触碰业务代码、共享类型、状态机、恢复逻辑、Git 历史或需要用户权衡的方案；整体为低风险文档闭环补丁
+- 后续建议：若下一轮继续推进，可先以当前真实 `git status --short --branch` 为准重新判断脏度，不要直接沿用旧结论；在仅剩文档类脏区时，优先做这种单点自洽补丁，若重新出现核心文件并行改动或需主题取舍，再主动停手说明
+
+## 2026-05-05 22:17
+
+- 分支：`feat/v12-unified-baseline`
+- Git 状态概览：当前分支正确，且相对远端 `ahead 2`；工作区同时存在 README、文档索引、迭代日志、`src/components/EndingView.tsx` 与 `src/components/MomentsFeed.tsx` 的未提交改动，以及一份新的未跟踪文档，属于已有业务改动与文档改动并行的脏工作区
+- 本轮目标：执行积极型自动迭代固定检查，并在不进入已有业务 diff 重叠区、不触碰 push / 历史整理边界的前提下，补一份专门解释 `ahead N` 信号的独立速卡
+- 改动类型：文档完善
+- 具体改动：先完成 `git status --short --branch`、`npm run build` 与 `npm run lint` 固定检查；随后新增 `docs/ITERATION_AHEAD_SIGNAL_CARD.md`，整理当前分支领先远端时的最小判断顺序、风险边界、推荐动作、通知模板与停手条件，并同步更新 `README.md` 与 `docs/DOCS_INDEX.md` 的文档入口
+- 验证结果：`npm run build` ✅；`npm run lint` ✅
+- 风险说明：本轮仅新增独立文档与索引入口，主动避开 `src/components/EndingView.tsx`、`src/components/MomentsFeed.tsx` 等已有业务 diff 区域，没有处理 push、强推、rebase、历史改写或需要用户权衡的提交策略；整体保持在低风险文档补丁范围内
+- 后续建议：若下一轮继续推进，优先先区分当前 `ahead 2` 对应的本地提交边界与工作区未提交改动是否属于同一主题；在需要决定 push、整理历史或继续进入已改业务文件之前，应先停下并做人工判断
+
+## 2026-05-06 01:17
+
+- 分支：`feat/v12-unified-baseline`
+- Git 状态概览：当前分支正确，且相对远端 `ahead 2`；工作区仍存在 README、文档索引、迭代日志、`src/components/EndingView.tsx` 与 `src/components/MomentsFeed.tsx` 的未提交改动，因此本轮继续避免进入已有业务 diff 重叠区
+- 本轮目标：执行积极型自动迭代固定检查，并在不触碰主状态机、共享类型、恢复逻辑或 Git 历史边界的前提下，交付一个单文件、可立即复验的体验增强
+- 改动类型：体验优化
+- 具体改动：先完成 `git status --short --branch`、`git branch --show-current`、`npm run build` 与 `npm run lint` 固定检查；随后仅修改 `src/components/TimelineView.tsx`，补充故事节点总数、关键转折/日常片段摘要、演示讲述建议，以及时间线列表语义标注，提升结尾收束页的可讲述性与可访问性
+- 验证结果：`npm run build` ✅；`npm run lint` ✅
+- 风险说明：本轮改动限制在单个未被当前业务 diff 占用的组件文件内，未触碰 `src/app/page.tsx`、`src/lib/memory.ts`、`src/types/index.ts`、`src/app/api/chat/route.ts` 等高敏感区域，也未处理 push、强推、rebase 或历史改写；整体仍属低风险单文件 UI 微增强
+- 后续建议：若下一轮继续推进，优先先复核当前已修改业务文件的归属与重叠风险；在需要继续进入 `EndingView`、`MomentsFeed` 等已有 diff 文件，或需要决定 push / 历史整理策略时，应先停下并做人工判断
+
+## 2026-05-06 02:17
+
+- 分支：`feat/v12-unified-baseline`
+- Git 状态概览：当前分支正确，且相对远端 `ahead 2`；工作区同时存在 README、文档索引、迭代日志、多个已修改组件文件以及新的未跟踪文档，属于带有组合信号的脏工作区
+- 本轮目标：执行积极型自动迭代固定检查，并在不进入已有业务 diff 重叠区、不触碰 push / 历史整理边界的前提下，补一份专门解释多种脏信号叠加时如何快速判断是否应停手说明的独立速卡
+- 改动类型：文档完善
+- 具体改动：先完成 `git status --short --branch`、`npm run build` 与 `npm run lint` 固定检查；随后新增 `docs/ITERATION_DIRTY_SIGNAL_COMBO_CARD.md`，系统整理 `ahead N`、未跟踪内容与已有文件修改并行出现时的组合判断法、推荐动作、零改动闭环思路与通知模板，并同步更新 `README.md` 与 `docs/DOCS_INDEX.md` 增加文档入口
+- 验证结果：`npm run build` ✅；`npm run lint` ✅
+- 风险说明：本轮仅新增独立文档并补齐索引入口，主动避开 `src/components/EndingView.tsx`、`src/components/MomentsFeed.tsx` 等已有业务 diff 区域，也未处理 push、强推、rebase、历史改写或需要用户权衡的提交策略；整体保持在低风险文档补丁范围内
+- 后续建议：若下一轮继续推进，优先先区分当前组合信号下是否仍存在真正单点、独立、可立即复验的目标；若需要继续进入已有已修改组件、整理提交边界或判断未跟踪内容归属，应先停下并做人工判断
+
+## 2026-05-06 04:17
+
+- 分支：`feat/v12-unified-baseline`
+- Git 状态概览：当前分支正确，且相对远端 `ahead 2`；工作区同时存在 README、文档索引、迭代日志、`src/components/EndingView.tsx`、`src/components/MomentsFeed.tsx`、`src/components/TimelineView.tsx` 的未提交改动，以及新的未跟踪文档，属于带有组合信号的脏工作区
+- 本轮目标：执行积极型自动迭代固定检查，并在不进入已有业务 diff 重叠区、不触碰主状态机、共享类型、恢复逻辑或 Git 历史边界的前提下，交付一个单文件、可立即复验的资料页体验增强
+- 改动类型：体验优化
+- 具体改动：先完成 `git status --short --branch`、`npm run build` 与 `npm run lint` 固定检查；随后仅修改 `src/components/ProfilePage.tsx`，复用现有关系描述计算结果，补充“此刻的关系线索”说明卡，并为熟悉度 / 心动值进度条增加语义化无障碍信息，提升角色资料页的可讲述性与可访问性
+- 验证结果：`npm run build` ✅；`npm run lint` ✅
+- 风险说明：本轮改动限制在单个当前未出现在已有业务 diff 列表中的组件文件内，未触碰 `src/app/page.tsx`、`src/lib/memory.ts`、`src/types/index.ts`、`src/app/api/chat/route.ts` 等高敏感区域，也未处理 push、强推、rebase、历史改写或需要用户权衡的提交策略；整体仍属低风险单文件 UI 微增强
+- 后续建议：若下一轮继续推进，优先先复核当前已修改组件与未跟踪文档的归属及重叠风险；在需要继续进入 `EndingView`、`MomentsFeed`、`TimelineView` 等已有 diff 文件，或需要决定 push / 历史整理策略时，应先停下并做人工判断
+
+## 2026-05-06 06:17
+
+- 分支：`feat/v12-unified-baseline`
+- Git 状态概览：当前分支正确，且相对远端 `ahead 2`；工作区同时存在 README、文档索引、迭代日志、多个已修改组件文件、`src/lib/memory.ts`、`src/types/index.ts` 等共享区域改动，以及新的未跟踪文档，因此本轮继续避免进入已有业务 diff 重叠区与共享结构边界
+- 本轮目标：执行积极型自动迭代固定检查，并在不触碰主状态机、共享类型、恢复逻辑或 Git 历史边界的前提下，交付一个单文件、可立即复验的聊天页体验增强
+- 改动类型：体验优化
+- 具体改动：先完成 `git status --short --branch`、`npm run build` 与 `npm run lint` 固定检查；随后仅修改 `src/components/ChatView.tsx`，新增基于当前关系阶段的回复引导卡，并为输入框补充关联说明，帮助首次演示与答辩时更快组织自然回复
+- 验证结果：`npm run build` ✅；`npm run lint` ✅
+- 风险说明：本轮改动限制在单个当前未出现在本轮起始高风险共享改动列表中的组件文件内，未触碰 `src/app/page.tsx`、`src/lib/memory.ts`、`src/types/index.ts`、`src/app/api/chat/route.ts` 等高敏感区域，也未处理 push、强推、rebase、历史改写或需要用户权衡的提交策略；整体仍属低风险单文件 UI 微增强
+- 后续建议：若下一轮继续推进，优先先复核当前已修改组件与共享区域改动的归属及重叠风险；在需要继续进入 `EndingView`、`MomentsFeed`、`ProfilePage`、`TimelineView` 等已有 diff 文件，或需要决定 push / 历史整理策略时，应先停下并做人工判断
