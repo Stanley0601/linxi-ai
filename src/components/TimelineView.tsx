@@ -10,6 +10,11 @@ export default function TimelineView({ char, events, onBack }: {
   const keyMoments = events.filter((event) => event.isKeyMoment);
   const storyStart = events[0]?.time;
   const storyLatest = events[events.length - 1]?.time;
+  const nonKeyMomentCount = Math.max(events.length - keyMoments.length, 0);
+  const storySummaryTitle = storyStart && storyLatest ? `从 ${storyStart} 到 ${storyLatest}` : `${char.name} 的故事仍在展开`;
+  const narrationHint = keyMoments.length > 0
+    ? `建议先讲 ${keyMoments.length} 个关键转折，再补充 ${nonKeyMomentCount} 个日常片段，最后回到结局页解释你如何一步步改变了 ${char.name} 的人生走向。`
+    : `现在还没有出现关键转折，先继续和 ${char.name} 聊天，等故事再往前推进后回来看会更适合做演示收束。`;
 
   return (
     <motion.div className="h-screen flex flex-col" style={{ background: QQ_BG }}
@@ -33,14 +38,14 @@ export default function TimelineView({ char, events, onBack }: {
 
       {/* Timeline */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="relative max-w-md mx-auto">
+        <div className="relative max-w-md mx-auto" role="list" aria-label={`${char.name}的人生故事时间线`}>
           {events.length > 0 && (
             <div className="mb-5 rounded-2xl border border-[#d7e5f5] bg-white/90 p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-medium tracking-[0.08em] text-[#2f6ea7]">故事摘要</p>
                   <h2 className="mt-1 text-[16px] font-semibold text-[#0f172a]">
-                    从 {storyStart} 到 {storyLatest}
+                    {storySummaryTitle}
                   </h2>
                 </div>
                 <div className="rounded-xl bg-[#eef6ff] px-3 py-2 text-right">
@@ -48,9 +53,30 @@ export default function TimelineView({ char, events, onBack }: {
                   <p className="text-[10px] text-[#5b6b7f]">关键节点</p>
                 </div>
               </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-full bg-[#f8fbff] px-2.5 py-1 text-[11px] text-[#5b6b7f]">
+                  共 {events.length} 个故事节点
+                </span>
+                {keyMoments.length > 0 && (
+                  <span className="rounded-full bg-[#eef6ff] px-2.5 py-1 text-[11px] text-[#2f6ea7]">
+                    {keyMoments.length} 个关键转折
+                  </span>
+                )}
+                {nonKeyMomentCount > 0 && (
+                  <span className="rounded-full bg-[#f8fafc] px-2.5 py-1 text-[11px] text-[#64748b]">
+                    {nonKeyMomentCount} 个日常片段
+                  </span>
+                )}
+              </div>
               <p className="mt-3 text-[13px] leading-relaxed text-[#5b6b7f]">
                 这条时间线收束了 {char.name} 这轮故事里最值得回看的选择与转折，适合在演示结尾快速说明“你到底改变了什么”。
               </p>
+              <div className="mt-3 rounded-xl border border-[#e8f2fb] bg-[#f7fbff] px-3 py-3">
+                <p className="text-[11px] font-medium text-[#2f6ea7]">演示讲述建议</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-[#5f7388]">
+                  {narrationHint}
+                </p>
+              </div>
             </div>
           )}
 
@@ -59,6 +85,8 @@ export default function TimelineView({ char, events, onBack }: {
 
           {events.map((event, i) => (
             <motion.div key={event.id} className="relative flex gap-4 mb-8"
+              role="listitem"
+              aria-label={`${event.time}：${event.title}${event.isKeyMoment ? '，关键转折' : ''}`}
               initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.15 }}>
               {/* 节点 */}

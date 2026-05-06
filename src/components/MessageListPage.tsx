@@ -388,6 +388,19 @@ export default function MessageListPage({ statuses, onSelectChat, onSelectProfil
     : quickFilter === "muted"
       ? `当前使用"${quickFilterLabel}"视图，可集中管理已静音聊天；如曾隐藏静音聊天，可用下方按钮一键恢复到默认列表。`
       : `当前使用"${quickFilterLabel}"视图，再次点按该标签可返回全部。`;
+  const recommendedNextStepText = normalizedQuery
+    ? filteredStatuses.length > 0
+      ? `推荐下一步：按 Enter 可直达首条匹配聊天；如果想先讲角色背景，也可以先点头像进入资料页。`
+      : "推荐下一步：先清空搜索或切回全部视图，再用角色名、兴趣标签或最近消息重新缩小范围。"
+    : quickFilter === "resumable" && visibleStatuses.length > 0
+      ? "推荐下一步：优先打开排在前面的“可继续”会话，通常最容易接回上一次录屏或答辩节奏。"
+      : quickFilter === "muted" && hasHiddenMutedChats
+        ? "推荐下一步：先检查是否需要恢复隐藏的静音聊天，确认后再切回全部视图继续讲主路线。"
+        : quickFilter !== "all" && visibleStatuses.length > 0
+          ? `推荐下一步：先从“${quickFilterLabel}”里打开一个目标聊天，讲完后再次点按同一标签即可回到全部。`
+          : recentSearchTags.length > 0
+            ? "推荐下一步：先用最近搜索词锁定要讲的角色，再结合快捷视图补充上下文，会更容易稳定演示节奏。"
+            : "推荐下一步：可以先搜索角色名或点一个快捷视图，再按 Enter 快速进入首条匹配聊天。";
   const showResetControls = Boolean(normalizedQuery) || quickFilter !== "all";
   const canCopySearchQuery = typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function";
 
@@ -694,6 +707,9 @@ export default function MessageListPage({ statuses, onSelectChat, onSelectProfil
         </p>
         <p className="mt-[4px] text-[11px] text-[#c0c9d4]" aria-live="polite">
           默认会优先展示最近更值得回复的聊天；搜索时不会打乱匹配结果。
+        </p>
+        <p className="mt-[4px] text-[11px] text-[#8fa2b8]" aria-live="polite">
+          {recommendedNextStepText}
         </p>
         {pinFeedback && (
           <p className="mt-[4px] text-[11px]" style={{ color: QQ_BLUE }} aria-live="polite">

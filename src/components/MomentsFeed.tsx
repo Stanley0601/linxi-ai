@@ -26,6 +26,12 @@ export default function MomentsFeed({ posts, onToggleLike, onAddComment }: {
     { key: "highlighted", label: "懂你优先" },
     { key: "warm", label: "关系升温" },
   ] as const;
+  const activeFilterLabel = filterTabs.find((tab) => tab.key === filterMode)?.label ?? "全部动态";
+  const getFilterCount = (key: "all" | "highlighted" | "warm") => {
+    if (key === "highlighted") return highlightedPosts;
+    if (key === "warm") return warmPosts;
+    return posts.length;
+  };
 
   useEffect(() => {
     saveLastMomentsFilter(filterMode);
@@ -117,6 +123,7 @@ export default function MomentsFeed({ posts, onToggleLike, onAddComment }: {
                   title={isActive ? `取消${tab.label}筛选` : `切换到${tab.label}`}
                 >
                   {tab.label}
+                  <span className="ml-1 text-[10px] opacity-70">{getFilterCount(tab.key)}</span>
                 </button>
               );
             })}
@@ -132,6 +139,19 @@ export default function MomentsFeed({ posts, onToggleLike, onAddComment }: {
               </button>
             )}
           </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-full px-2.5 py-1 text-[10px] leading-none border border-[#d9e8f7] bg-[#f7fbff] text-[#6f8398]">
+              当前视图：{activeFilterLabel}
+            </span>
+            <span className="rounded-full px-2.5 py-1 text-[10px] leading-none border border-[#edf2f7] bg-white text-[#9aa7b5]">
+              已命中 {filteredPosts.length} / {posts.length}
+            </span>
+            {filterMode !== "all" && (
+              <span className="rounded-full px-2.5 py-1 text-[10px] leading-none" style={{ background: `${QQ_BLUE}10`, color: QQ_BLUE }}>
+                当前视图会自动记住，下次打开动态页时优先恢复
+              </span>
+            )}
+          </div>
           <p className="mt-3 text-[12px] text-[#8fa2b8]" aria-live="polite">
             {filterSummary}
           </p>
@@ -140,7 +160,7 @@ export default function MomentsFeed({ posts, onToggleLike, onAddComment }: {
           </p>
           {filterMode !== "all" && (
             <p className="mt-1 text-[11px]" style={{ color: QQ_BLUE }} aria-live="polite">
-              当前正在使用“{filterTabs.find((tab) => tab.key === filterMode)?.label}”视图；如果只想回到最容易讲述的主路线，直接点“恢复默认”即可。
+              当前正在使用“{activeFilterLabel}”视图；如果只想回到最容易讲述的主路线，直接点“恢复默认”即可。
             </p>
           )}
           <div className="mt-3 rounded-xl border border-[#edf3f8] bg-[#fafcff] px-3 py-2">

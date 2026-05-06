@@ -78,6 +78,20 @@ function createInitialChatSession(
   };
 }
 
+function getReplyToneHint(relationship: RelationshipState | null): string {
+  const stage = relationship?.stage;
+
+  switch (stage) {
+    case "熟络":
+      return "现在已经过了纯试探阶段，顺着对方刚说的话追问、接梗或补一句近况，通常会比重新起话题更自然。";
+    case "暧昧":
+      return "当前关系已经有明显升温，可以多给一点关心、肯定或带情绪的回应，让这轮聊天更像真实 QQ 里会继续发酵的互动。";
+    case "陌生":
+    default:
+      return "现在更适合从轻松近况、共同兴趣或天气关怀切入，先把语气聊顺，再慢慢推进关系。";
+  }
+}
+
 export default function ChatView({ char, userProfile, relationship, proactiveEntry, onEnd, onBack }: {
   char: Character;
   userProfile: UserProfile | null;
@@ -111,6 +125,8 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
   const canSend = input.trim().length > 0 && !isComposing;
   const inputCount = input.trim().length;
   const remainingCount = MAX_INPUT_LENGTH - input.length;
+  const replyToneHint = getReplyToneHint(state.relationship);
+  const showReplyCoach = userTurn && !state.isFinished && input.trim().length === 0;
 
   const scrollBottom = useCallback(() => {
     setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 80);
@@ -302,73 +318,94 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
 
       <div className="flex-shrink-0 z-20 px-4 py-3 safe-area-bottom" style={{ background: "#ffffff", borderTop: "0.5px solid #ebebeb" }}>
         {userTurn ? (
-          <motion.div className="flex gap-2.5 items-end max-w-lg mx-auto"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <div className="flex-1">
-              <input ref={inputRef} type="text" value={input}
-                onChange={e => setInput(e.target.value)}
-                maxLength={MAX_INPUT_LENGTH}
-                onKeyDown={handleInputKeyDown}
-                onCompositionStart={() => setIsComposing(true)}
-                onCompositionEnd={() => setIsComposing(false)}
-                className="w-full px-4 py-2.5 rounded-full text-[16px] border outline-none focus:border-[#ccc]"
-                style={{ lineHeight: "1.5", background: "#f2f3f5", borderColor: "#f2f3f5" }}
-                placeholder={`和${char.name}说点什么...`}
-                aria-label={`发送给${char.name}的消息`}
-                autoFocus />
-              <div className="mt-1 flex items-center justify-between px-2 text-[11px]" aria-live="polite">
-                <span className={inputCount > 0
-                  ? remainingCount <= 10
-                    ? "text-[#ff7a45]"
-                    : "text-[#a0a8b3]"
-                  : "text-[#a0a8b3]"}
-                >
-                  {inputCount > 0 ? `还可输入 ${remainingCount} 字 · 按 Esc 可清空` : "支持回车发送，按 Esc 可收起输入"}
-                </span>
-                {input.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLastClearedDraft(input);
-                      clearChatDraft(char.id);
-                      setInput("");
-                    }}
-                    className="text-[#8fa2b8]"
+          <>
+            {showReplyCoach && (
+              <div className="max-w-lg mx-auto mb-2 rounded-2xl border border-[#e8eef5] bg-[#f7f9fc] px-3 py-3">
+                <p className="text-[12px] font-medium text-[#4b5563]">这一轮更适合这样接</p>
+                <p id="chat-reply-coach" className="mt-1 text-[11px] leading-5 text-[#7b8794]">
+                  {replyToneHint}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {suggestions.length > 0 && (
+                    <span className="rounded-full border border-[#deebf8] bg-white px-2 py-1 text-[11px] leading-none text-[#4b84c4]">
+                      想快速演示可直接点上方建议回复
+                    </span>
+                  )}
+                  <span className="rounded-full border border-[#edf1f5] bg-white px-2 py-1 text-[11px] leading-none text-[#7b8794]">
+                    短句更像 QQ 聊天，也更容易触发自然连贯的回应
+                  </span>
+                </div>
+              </div>
+            )}
+            <motion.div className="flex gap-2.5 items-end max-w-lg mx-auto"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div className="flex-1">
+                <input ref={inputRef} type="text" value={input}
+                  onChange={e => setInput(e.target.value)}
+                  maxLength={MAX_INPUT_LENGTH}
+                  onKeyDown={handleInputKeyDown}
+                  onCompositionStart={() => setIsComposing(true)}
+                  onCompositionEnd={() => setIsComposing(false)}
+                  className="w-full px-4 py-2.5 rounded-full text-[16px] border outline-none focus:border-[#ccc]"
+                  style={{ lineHeight: "1.5", background: "#f2f3f5", borderColor: "#f2f3f5" }}
+                  placeholder={`和${char.name}说点什么...`}
+                  aria-label={`发送给${char.name}的消息`}
+                  aria-describedby={showReplyCoach ? "chat-input-help chat-reply-coach" : "chat-input-help"}
+                  autoFocus />
+                <div className="mt-1 flex items-center justify-between px-2 text-[11px]" aria-live="polite">
+                  <span id="chat-input-help" className={inputCount > 0
+                    ? remainingCount <= 10
+                      ? "text-[#ff7a45]"
+                      : "text-[#a0a8b3]"
+                    : "text-[#a0a8b3]"}
                   >
-                    清空
-                  </button>
+                    {inputCount > 0 ? `还可输入 ${remainingCount} 字 · 按 Esc 可清空` : "支持回车发送，按 Esc 可清空或收起输入"}
+                  </span>
+                  {input.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLastClearedDraft(input);
+                        clearChatDraft(char.id);
+                        setInput("");
+                      }}
+                      className="text-[#8fa2b8]"
+                    >
+                      清空
+                    </button>
+                  )}
+                </div>
+                {input.trim().length > 0 && (
+                  <p className="mt-1 px-2 text-[11px] text-[#b0bcc8]">
+                    草稿会按角色保存在当前浏览器，下次回来可继续输入。
+                  </p>
+                )}
+                {!input.trim().length && lastClearedDraft && (
+                  <div className="mt-1 flex items-center justify-between gap-3 rounded-2xl bg-[#f7f9fc] px-3 py-2 text-[11px] text-[#7b8794]">
+                    <span className="truncate">刚刚清空了一段草稿，可立即恢复。</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInput(lastClearedDraft);
+                        setLastClearedDraft("");
+                        setTimeout(() => inputRef.current?.focus(), 0);
+                      }}
+                      className="flex-shrink-0 font-medium text-[#4b84c4]"
+                    >
+                      撤销清空
+                    </button>
+                  </div>
                 )}
               </div>
-              {input.trim().length > 0 && (
-                <p className="mt-1 px-2 text-[11px] text-[#b0bcc8]">
-                  草稿会按角色保存在当前浏览器，下次回来可继续输入。
-                </p>
-              )}
-              {!input.trim().length && lastClearedDraft && (
-                <div className="mt-1 flex items-center justify-between gap-3 rounded-2xl bg-[#f7f9fc] px-3 py-2 text-[11px] text-[#7b8794]">
-                  <span className="truncate">刚刚清空了一段草稿，可立即恢复。</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setInput(lastClearedDraft);
-                      setLastClearedDraft("");
-                      setTimeout(() => inputRef.current?.focus(), 0);
-                    }}
-                    className="flex-shrink-0 font-medium text-[#4b84c4]"
-                  >
-                    撤销清空
-                  </button>
-                </div>
-              )}
-            </div>
-            <button onClick={() => handleSend()}
-              className="px-5 py-2.5 rounded-full text-[15px] font-medium text-white flex-shrink-0"
-              style={{ background: canSend ? "#0099FF" : "#c0c0c0" }}
-              disabled={!canSend}
-              aria-label="发送消息">
-              发送
-            </button>
-          </motion.div>
+              <button onClick={() => handleSend()}
+                className="px-5 py-2.5 rounded-full text-[15px] font-medium text-white flex-shrink-0"
+                style={{ background: canSend ? "#0099FF" : "#c0c0c0" }}
+                disabled={!canSend}
+                aria-label="发送消息">
+                发送
+              </button>
+            </motion.div>
+          </>
         ) : (
           <div className="flex gap-2.5 items-end max-w-lg mx-auto">
             <div className="flex-1 px-4 py-2.5 rounded-full text-[16px] text-[#bbb]" style={{ lineHeight: "1.5", background: "#f2f3f5" }}>

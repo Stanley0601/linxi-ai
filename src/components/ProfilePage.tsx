@@ -9,6 +9,34 @@ import { getRelationshipColor, getRelationshipDescription, getRelationshipMilest
 export default function ProfilePage({ char, status, onBack, onViewTimeline }: {
   char: Character; status: CharacterStatus; onBack: () => void; onViewTimeline?: () => void;
 }) {
+  const familiarity = status.familiarity || 0;
+  const chemistry = status.chemistry || 0;
+  const relationshipStage = status.relationshipStage || "陌生";
+  const relationshipDescription = getRelationshipDescription({
+    characterId: char.id,
+    familiarity,
+    chemistry,
+    stage: relationshipStage,
+    weather: null,
+  });
+  const relationshipMilestone = getRelationshipMilestone({
+    characterId: char.id,
+    familiarity,
+    chemistry,
+    stage: relationshipStage,
+    weather: null,
+  });
+  const relationshipClueSummary = status.hasFinished
+    ? `${char.name} 的故事已经在这个阶段暂时定格。现在回看资料页，更适合把它当作这段关系最后停留位置的缩影。`
+    : familiarity >= 70 || chemistry >= 70
+      ? `你们之间已经出现了比较明确的靠近信号。下一次聊天时，更适合顺着彼此的情绪或共同话题继续往深处走。`
+      : familiarity >= 35 || chemistry >= 35
+        ? `这段关系已经不只是互相认识而已。资料页里这些细节，会帮助你更自然地判断下一次该从近况、情绪还是共同兴趣切入。`
+        : `现在最适合先把这里当作 ${char.name} 的人物名片：先记住 TA 是谁、正在经历什么，再回到聊天里慢慢拉近距离。`;
+  const relationshipClueHint = status.hasFinished
+    ? "如果你想快速回顾这段关系是怎样走到现在的，可以继续查看时间线，把关键转折串起来。"
+    : "如果你准备继续了解 TA，可以先看关系阶段和状态描述，再决定下一条消息更适合关心近况、回应情绪还是顺着兴趣展开。";
+
   return (
     <motion.div className="h-screen flex flex-col" style={{ background: QQ_BG }}
       initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
@@ -73,9 +101,9 @@ export default function ProfilePage({ char, status, onBack, onViewTimeline }: {
             <p className="text-[13px] text-[#999]">你们的关系</p>
             <span
               className="text-[11px] px-2.5 py-1 rounded-full text-white"
-              style={{ background: getRelationshipColor(status.relationshipStage) }}
+              style={{ background: getRelationshipColor(relationshipStage) }}
             >
-              {status.relationshipStage || "陌生"}
+              {relationshipStage}
             </span>
           </div>
 
@@ -83,40 +111,56 @@ export default function ProfilePage({ char, status, onBack, onViewTimeline }: {
             <div>
               <div className="flex items-center justify-between text-[12px] text-[#8a94a6] mb-1.5">
                 <span>熟悉度</span>
-                <span>{status.familiarity || 0}%</span>
+                <span>{familiarity}%</span>
               </div>
-              <div className="h-[7px] rounded-full bg-[#eef2f6] overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${status.familiarity || 0}%`, background: QQ_BLUE }} />
+              <div
+                role="progressbar"
+                aria-label={`${char.name}的熟悉度`}
+                aria-valuenow={familiarity}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                className="h-[7px] rounded-full bg-[#eef2f6] overflow-hidden"
+              >
+                <div className="h-full rounded-full" style={{ width: `${familiarity}%`, background: QQ_BLUE }} />
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between text-[12px] text-[#8a94a6] mb-1.5">
                 <span>心动值</span>
-                <span>{status.chemistry || 0}%</span>
+                <span>{chemistry}%</span>
               </div>
-              <div className="h-[7px] rounded-full bg-[#f4eef7] overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${status.chemistry || 0}%`, background: getRelationshipColor(status.relationshipStage) }} />
+              <div
+                role="progressbar"
+                aria-label={`${char.name}的心动值`}
+                aria-valuenow={chemistry}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                className="h-[7px] rounded-full bg-[#f4eef7] overflow-hidden"
+              >
+                <div className="h-full rounded-full" style={{ width: `${chemistry}%`, background: getRelationshipColor(relationshipStage) }} />
               </div>
             </div>
 
             <div className="rounded-xl px-3 py-3" style={{ background: "#f8fafc" }}>
-              <p className="text-[13px] text-[#4b5563] leading-relaxed">{getRelationshipDescription({
-                characterId: char.id,
-                familiarity: status.familiarity || 0,
-                chemistry: status.chemistry || 0,
-                stage: status.relationshipStage || "陌生",
-                weather: null,
-              })}</p>
-              <p className="text-[12px] text-[#94a3b8] mt-2 leading-relaxed">{getRelationshipMilestone({
-                characterId: char.id,
-                familiarity: status.familiarity || 0,
-                chemistry: status.chemistry || 0,
-                stage: status.relationshipStage || "陌生",
-                weather: null,
-              })}</p>
+              <p className="text-[13px] text-[#4b5563] leading-relaxed">{relationshipDescription}</p>
+              <p className="text-[12px] text-[#94a3b8] mt-2 leading-relaxed">{relationshipMilestone}</p>
             </div>
           </div>
+        </div>
+
+        <div className="bg-white rounded-xl p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[13px] text-[#999]">此刻的关系线索</p>
+            <span
+              className="text-[11px] px-2.5 py-1 rounded-full"
+              style={{ background: `${QQ_BLUE}12`, color: QQ_BLUE }}
+            >
+              {status.hasFinished ? "结局回看" : "继续了解 TA"}
+            </span>
+          </div>
+          <p className="mt-2 text-[14px] text-[#333] leading-relaxed">{relationshipClueSummary}</p>
+          <p className="mt-2 text-[12px] text-[#94a3b8] leading-relaxed">{relationshipClueHint}</p>
         </div>
 
         <div className="bg-white rounded-xl p-4">

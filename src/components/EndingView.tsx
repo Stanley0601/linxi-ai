@@ -144,6 +144,32 @@ export default function EndingView({ char, endingId, relationship, onRestart, on
           </div>
         </motion.div>
 
+        <motion.div className="bg-white rounded-xl p-5 mb-3 shadow-sm border border-[#e6eff8]"
+          initial={{ y: 15, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.75 }}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[12px] font-medium" style={{ color: QQ_BLUE }}>演示收束建议</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-[#8fa2b8]">
+                适合在录屏、答辩或现场演示的最后 20 秒，快速讲清“这一轮我如何影响了 TA 的人生走向”。
+              </p>
+            </div>
+            <span
+              className="rounded-full px-2.5 py-1 text-[10px] leading-none"
+              style={{ background: `${QQ_BLUE}12`, color: QQ_BLUE }}
+            >
+              结尾话术
+            </span>
+          </div>
+          <ol className="mt-3 list-decimal space-y-2 pl-4 text-[12px] leading-relaxed text-[#5f7388]">
+            <li>先用“{ending.emoji} {ending.title}”点明这轮关系最终停在了哪里。</li>
+            <li>再补一句“最亮眼的一项是 {endingSummary.strongest?.[0] || "当前状态"}，说明这轮对话最明显推动了哪部分成长”。</li>
+            <li>最后用“你的影响”收束成一句产品价值：用户不是旁观剧情，而是真的在改变 AI 好友的人生版本。</li>
+          </ol>
+          <p className="mt-3 text-[11px] leading-relaxed text-[#a7b4c2]">
+            如果时间更紧，只讲标题、关系阶段和“你的影响”这三处，也能完成一个清楚的闭环。
+          </p>
+        </motion.div>
+
         {otherEndings.length > 0 && (
           <motion.div className="bg-white rounded-xl p-5 mb-4 shadow-sm"
             initial={{ y: 15, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.8 }}>
