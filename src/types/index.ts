@@ -260,6 +260,7 @@ export interface LocalStorageSummary {
   hasRelationships: boolean;
   hasProactiveInbox: boolean;
   hasMomentsFilter: boolean;
+  hideProfileDemoSummary: boolean;
   hasRecentChat: boolean;
   lastOpenedChatAt: number | null;
   lastResumableChatCharacterId: string | null;

@@ -5,7 +5,7 @@ import Image from "next/image";
 import type { UserProfile } from "@/types";
 import { USER_AVATAR, QQ_BG, QQ_BLUE } from "@/lib/constants";
 import { getWeatherCareLine } from "@/lib/weather-context";
-import { getLocalStorageSummary } from "@/lib/memory";
+import { getLocalStorageSummary, saveHideProfileDemoSummary } from "@/lib/memory";
 
 function formatRecentChatTime(timestamp: number | null): string {
   if (!timestamp) return "还没有继续过会话";
@@ -59,6 +59,7 @@ export default function MyProfileTab({ userProfile, onResetAll, onResumeLastChat
   const [expandedCard, setExpandedCard] = useState<"about" | "contest" | null>(null);
   const [copySummaryFeedback, setCopySummaryFeedback] = useState<string | null>(null);
   const storageSummary = getLocalStorageSummary();
+  const [hideDemoSummary, setHideDemoSummary] = useState(storageSummary.hideProfileDemoSummary);
   const lastChatTimeText = formatRecentChatTime(storageSummary.lastOpenedChatAt);
   const resumableCharacterName = storageSummary.lastResumableChatCharacterName;
   const resumableHint = resumableCharacterName ? `最近可继续角色：${resumableCharacterName}` : "系统会优先帮你恢复最近仍有聊天进度的角色";
@@ -141,6 +142,9 @@ export default function MyProfileTab({ userProfile, onResetAll, onResumeLastChat
     `最近搜索：${lastSearchText || "暂无"}`,
     `演示偏好：${rememberedPreferenceText}`,
   ].join("；");
+  const collapsedDemoSummaryText = canResumeDemoFast
+    ? "你可以随时重新展开这里，快速回看演示恢复清单、讲述顺序建议和本地摘要统计。"
+    : "等你继续聊天、搜索或切换视图后，这里会再次沉淀出可直接复用的演示恢复信息。";
 
   const toggleCard = (card: "about" | "contest") => {
     setExpandedCard((prev) => (prev === card ? null : card));
@@ -170,6 +174,14 @@ export default function MyProfileTab({ userProfile, onResetAll, onResumeLastChat
 
     window.setTimeout(() => setCopySummaryFeedback(null), 2200);
   }, [demoSummaryText]);
+
+  const handleToggleDemoSummaryVisibility = useCallback(() => {
+    setHideDemoSummary((prev) => {
+      const next = !prev;
+      saveHideProfileDemoSummary(next);
+      return next;
+    });
+  }, [setHideDemoSummary]);
 
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: QQ_BG }}>
@@ -352,7 +364,7 @@ export default function MyProfileTab({ userProfile, onResetAll, onResumeLastChat
           点击后会先二次确认，避免演示时误触清空本地数据。
         </p>
         <div className="mt-3 rounded-2xl border border-[#edf2f7] bg-[#fafcff] px-3 py-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[13px] font-medium text-[#3b4856]">本地演示数据摘要</p>
               <p className="mt-1 text-[12px] text-[#8da0b3] leading-relaxed">
@@ -368,163 +380,203 @@ export default function MyProfileTab({ userProfile, onResetAll, onResumeLastChat
               <span className="rounded-full px-2.5 py-1 text-[10px] leading-none" style={{ background: `${QQ_BLUE}12`, color: QQ_BLUE }}>
                 浏览器本地
               </span>
-              <button
-                type="button"
-                onClick={handleCopyDemoSummary}
-                className="rounded-full border border-[#d7e9fb] bg-white px-3 py-1.5 text-[11px] font-medium text-[#1d86ff] active:opacity-90"
-                title="复制当前演示摘要，便于复用到答辩备注或录屏提词"
-              >
-                复制演示摘要
-              </button>
-            </div>
-          </div>
-          <div className="mt-3 rounded-xl border border-[#e7f1fb] bg-white/80 px-3 py-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[12px] font-medium text-[#4a5b6c]">演示恢复清单</p>
-              <span className="text-[10px] text-[#9fb0c1]">录屏 / 答辩友好</span>
-            </div>
-            <p className="mt-1 text-[11px] leading-relaxed text-[#8da0b3]">
-              {canResumeDemoFast ? "下次打开时，这些入口能帮你更快回到上一次的演示节奏。" : "开始体验后，这里会自动提示最近会话、搜索词和视图偏好。"}
-            </p>
-            {resumeChecklist.length > 0 ? (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {resumeChecklist.map((item) => (
-                  <span
-                    key={item}
-                    className="rounded-full border border-[#e4edf5] bg-[#f7fbff] px-2.5 py-1 text-[10px] leading-none text-[#5f7388]"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-2 text-[11px] leading-relaxed text-[#b0bcc8]">
-                还没有保存任何可恢复入口，先去消息页搜索、筛选或继续一次聊天后会自动记录。
-              </p>
-            )}
-          </div>
-          <div className="mt-3 rounded-xl border border-[#dfeefc] bg-[#f3f9ff] px-3 py-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[12px] font-medium" style={{ color: QQ_BLUE }}>一页讲完当前演示链路</p>
-              <span className="text-[10px] text-[#8fa2b8]">讲述顺序建议</span>
-            </div>
-            <p className="mt-1 text-[12px] leading-relaxed text-[#5f7388]">
-              {demoFlowSummary}
-            </p>
-            <ol className="mt-3 space-y-2 text-[11px] leading-relaxed text-[#6f8398] list-decimal pl-4">
-              {demoFlowSteps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
-            <p className="mt-3 text-[11px] leading-relaxed text-[#8fa2b8]">
-              适合在录屏、答辩或临时接手演示时，先按这个顺序讲，再根据现场时间压缩或展开细节。
-            </p>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-white px-3 py-2">
-              <p className="text-[11px] text-[#9aa7b5]">聊天进度</p>
-              <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.chatHistoryCount}</p>
-            </div>
-            <div className="rounded-xl bg-white px-3 py-2">
-              <p className="text-[11px] text-[#9aa7b5]">已达成结局</p>
-              <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.finishedStoryCount}</p>
-            </div>
-            <div className="rounded-xl bg-white px-3 py-2">
-              <p className="text-[11px] text-[#9aa7b5]">点赞</p>
-              <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.likedMomentsCount}</p>
-            </div>
-            <div className="rounded-xl bg-white px-3 py-2">
-              <p className="text-[11px] text-[#9aa7b5]">评论</p>
-              <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.commentCount}</p>
-            </div>
-            <div className="rounded-xl bg-white px-3 py-2">
-              <p className="text-[11px] text-[#9aa7b5]">聊天草稿</p>
-              <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.draftCount}</p>
-            </div>
-            <div className="rounded-xl bg-white px-3 py-2">
-              <p className="text-[11px] text-[#9aa7b5]">最近搜索标签</p>
-              <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.recentMessageSearchTagCount}</p>
-            </div>
-            <div className="rounded-xl bg-white px-3 py-2">
-              <p className="text-[11px] text-[#9aa7b5]">已固定聊天</p>
-              <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.pinnedChatCount}</p>
-            </div>
-            <div className="rounded-xl bg-white px-3 py-2">
-              <p className="text-[11px] text-[#9aa7b5]">近期互动会话</p>
-              <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.recentInteractionChatCount}</p>
-            </div>
-            <div className="rounded-xl bg-white px-3 py-2">
-              <p className="text-[11px] text-[#9aa7b5]">已静音聊天</p>
-              <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.mutedChatCount}</p>
-            </div>
-            <div className="rounded-xl bg-white px-3 py-2">
-              <p className="text-[11px] text-[#9aa7b5]">已隐藏静音</p>
-              <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.hiddenMutedChatCount}</p>
-            </div>
-            <div className="rounded-xl bg-white px-3 py-2">
-              <p className="text-[11px] text-[#9aa7b5]">演示偏好</p>
-              <p className="mt-1 text-[13px] font-semibold text-[#2f3b48]">{rememberedPreferenceText}</p>
-            </div>
-          </div>
-          <div className="mt-2 rounded-xl bg-white px-3 py-2">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] text-[#9aa7b5]">最近继续演示</p>
-              <span className="text-[11px] text-[#8fa2b8]">会随打开聊天自动更新</span>
-            </div>
-            <p className="mt-1 text-[13px] font-medium text-[#2f3b48]">{lastChatTimeText}</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-[#8fa2b8]">
-              {resumableCharacterName
-                ? `下次进入时，可优先从 ${resumableCharacterName} 的会话继续演示，减少录屏时重新定位聊天的步骤。`
-                : "当你打开任意角色聊天后，这里会自动记录最近一次继续演示的入口。"}
-            </p>
-          </div>
-          <div className="mt-2 rounded-xl bg-white px-3 py-2">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] text-[#9aa7b5]">最近消息列表搜索</p>
-              <span className="text-[11px] text-[#8fa2b8]">便于快速恢复演示筛选</span>
-            </div>
-            <p className="mt-1 text-[13px] font-medium text-[#2f3b48]">{lastSearchText || "暂无最近搜索词"}</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-[#8fa2b8]">
-              {lastSearchText
-                ? `当前浏览器记住了你上次搜索的“${lastSearchText}”，进入消息列表后可更快回到答辩或录屏时要展示的角色与话题。`
-                : "当你在消息列表中搜索角色、消息或标签后，这里会显示最近一次搜索词。"}
-            </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-[#b0bcc8]">{recentSearchTagText}</p>
-          </div>
-          <div className="mt-2 rounded-xl border border-[#e8f2fb] bg-[#f7fbff] px-3 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] font-medium" style={{ color: QQ_BLUE }}>演示恢复建议</p>
-              <span className="text-[10px] text-[#8fa2b8]">低成本回到展示链路</span>
-            </div>
-            <p className="mt-1 text-[12px] leading-relaxed text-[#5f7388]">
-              {resumableCharacterName
-                ? `建议先从 ${resumableCharacterName} 的会话继续，再结合消息列表里的最近搜索词与快捷视图，能更快回到上一次录屏或答辩节奏。`
-                : "建议先在消息列表里使用最近搜索词、快捷视图或“继续上次会话”入口，尽量减少重新定位角色和剧情节点的时间。"}
-            </p>
-            <p className="mt-2 text-[11px] leading-relaxed text-[#8fa2b8]">
-              小技巧：消息列表搜索框支持 /、⌘/Ctrl + K 快速聚焦，输入后按 Enter 可直接进入首条匹配聊天。
-            </p>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {savedDataBadges.length > 0 ? (
-              savedDataBadges.map((badge) => (
-                <span
-                  key={badge}
-                  className="rounded-full bg-white px-2.5 py-1 text-[11px] leading-none text-[#7f93a8] border border-[#edf2f7]"
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyDemoSummary}
+                  className="rounded-full border border-[#d7e9fb] bg-white px-3 py-1.5 text-[11px] font-medium text-[#1d86ff] active:opacity-90"
+                  title="复制当前演示摘要，便于复用到答辩备注或录屏提词"
                 >
-                  已保存 · {badge}
-                </span>
-              ))
-            ) : (
-              <span className="text-[12px] text-[#b4bec8]">当前还没有检测到已保存的演示数据。</span>
-            )}
+                  复制演示摘要
+                </button>
+                <button
+                  type="button"
+                  onClick={handleToggleDemoSummaryVisibility}
+                  className="rounded-full border border-[#e4edf5] bg-white px-3 py-1.5 text-[11px] font-medium text-[#6f8398] active:opacity-90"
+                  aria-pressed={hideDemoSummary}
+                  title={hideDemoSummary ? "重新展开本地演示数据摘要" : "收起本地演示数据摘要详情"}
+                >
+                  {hideDemoSummary ? "展开详情" : "收起详情"}
+                </button>
+              </div>
+            </div>
           </div>
-          <p className="mt-3 text-[11px] leading-relaxed text-[#b0bcc8]">
-            除聊天记录外，系统也会记住你上次搜索的关键词、最近搜过的标签、消息列表快捷视图、固定/静音/隐藏的聊天、最近继续的会话、未发送的聊天草稿和动态筛选状态，方便录屏或答辩时快速回到上一个演示节点。
-          </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-[#b0bcc8]">
-            “近期互动会话”会统计当前浏览器里仍保留聊天记录、未发送草稿或未读主动消息的角色数量，方便你判断现在还能快速演示多少条有效链路。
-          </p>
+
+          {hideDemoSummary ? (
+            <div className="mt-3 rounded-xl border border-[#e7f1fb] bg-white/80 px-3 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[12px] font-medium text-[#4a5b6c]">摘要详情已收起</p>
+                <span className="text-[10px] text-[#9fb0c1]">下次打开也会保持</span>
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-[#8da0b3]">
+                {collapsedDemoSummaryText}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {resumeChecklist.length > 0 ? (
+                  resumeChecklist.slice(0, 3).map((item) => (
+                    <span
+                      key={item}
+                      className="rounded-full border border-[#e4edf5] bg-[#f7fbff] px-2.5 py-1 text-[10px] leading-none text-[#5f7388]"
+                    >
+                      {item}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-[11px] text-[#b0bcc8]">暂时还没有可恢复的摘要条目。</span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="mt-3 rounded-xl border border-[#e7f1fb] bg-white/80 px-3 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[12px] font-medium text-[#4a5b6c]">演示恢复清单</p>
+                  <span className="text-[10px] text-[#9fb0c1]">录屏 / 答辩友好</span>
+                </div>
+                <p className="mt-1 text-[11px] leading-relaxed text-[#8da0b3]">
+                  {canResumeDemoFast ? "下次打开时，这些入口能帮你更快回到上一次的演示节奏。" : "开始体验后，这里会自动提示最近会话、搜索词和视图偏好。"}
+                </p>
+                {resumeChecklist.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {resumeChecklist.map((item) => (
+                      <span
+                        key={item}
+                        className="rounded-full border border-[#e4edf5] bg-[#f7fbff] px-2.5 py-1 text-[10px] leading-none text-[#5f7388]"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[11px] leading-relaxed text-[#b0bcc8]">
+                    还没有保存任何可恢复入口，先去消息页搜索、筛选或继续一次聊天后会自动记录。
+                  </p>
+                )}
+              </div>
+              <div className="mt-3 rounded-xl border border-[#dfeefc] bg-[#f3f9ff] px-3 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[12px] font-medium" style={{ color: QQ_BLUE }}>一页讲完当前演示链路</p>
+                  <span className="text-[10px] text-[#8fa2b8]">讲述顺序建议</span>
+                </div>
+                <p className="mt-1 text-[12px] leading-relaxed text-[#5f7388]">
+                  {demoFlowSummary}
+                </p>
+                <ol className="mt-3 space-y-2 text-[11px] leading-relaxed text-[#6f8398] list-decimal pl-4">
+                  {demoFlowSteps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+                <p className="mt-3 text-[11px] leading-relaxed text-[#8fa2b8]">
+                  适合在录屏、答辩或临时接手演示时，先按这个顺序讲，再根据现场时间压缩或展开细节。
+                </p>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-[11px] text-[#9aa7b5]">聊天进度</p>
+                  <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.chatHistoryCount}</p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-[11px] text-[#9aa7b5]">已达成结局</p>
+                  <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.finishedStoryCount}</p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-[11px] text-[#9aa7b5]">点赞</p>
+                  <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.likedMomentsCount}</p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-[11px] text-[#9aa7b5]">评论</p>
+                  <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.commentCount}</p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-[11px] text-[#9aa7b5]">聊天草稿</p>
+                  <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.draftCount}</p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-[11px] text-[#9aa7b5]">最近搜索标签</p>
+                  <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.recentMessageSearchTagCount}</p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-[11px] text-[#9aa7b5]">已固定聊天</p>
+                  <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.pinnedChatCount}</p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-[11px] text-[#9aa7b5]">近期互动会话</p>
+                  <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.recentInteractionChatCount}</p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-[11px] text-[#9aa7b5]">已静音聊天</p>
+                  <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.mutedChatCount}</p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-[11px] text-[#9aa7b5]">已隐藏静音</p>
+                  <p className="mt-1 text-[16px] font-semibold text-[#2f3b48]">{storageSummary.hiddenMutedChatCount}</p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-[11px] text-[#9aa7b5]">演示偏好</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[#2f3b48]">{rememberedPreferenceText}</p>
+                </div>
+              </div>
+              <div className="mt-2 rounded-xl bg-white px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[11px] text-[#9aa7b5]">最近继续演示</p>
+                  <span className="text-[11px] text-[#8fa2b8]">会随打开聊天自动更新</span>
+                </div>
+                <p className="mt-1 text-[13px] font-medium text-[#2f3b48]">{lastChatTimeText}</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-[#8fa2b8]">
+                  {resumableCharacterName
+                    ? `下次进入时，可优先从 ${resumableCharacterName} 的会话继续演示，减少录屏时重新定位聊天的步骤。`
+                    : "当你打开任意角色聊天后，这里会自动记录最近一次继续演示的入口。"}
+                </p>
+              </div>
+              <div className="mt-2 rounded-xl bg-white px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[11px] text-[#9aa7b5]">最近消息列表搜索</p>
+                  <span className="text-[11px] text-[#8fa2b8]">便于快速恢复演示筛选</span>
+                </div>
+                <p className="mt-1 text-[13px] font-medium text-[#2f3b48]">{lastSearchText || "暂无最近搜索词"}</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-[#8fa2b8]">
+                  {lastSearchText
+                    ? `当前浏览器记住了你上次搜索的“${lastSearchText}”，进入消息列表后可更快回到答辩或录屏时要展示的角色与话题。`
+                    : "当你在消息列表中搜索角色、消息或标签后，这里会显示最近一次搜索词。"}
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-[#b0bcc8]">{recentSearchTagText}</p>
+              </div>
+              <div className="mt-2 rounded-xl border border-[#e8f2fb] bg-[#f7fbff] px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[11px] font-medium" style={{ color: QQ_BLUE }}>演示恢复建议</p>
+                  <span className="text-[10px] text-[#8fa2b8]">低成本回到展示链路</span>
+                </div>
+                <p className="mt-1 text-[12px] leading-relaxed text-[#5f7388]">
+                  {resumableCharacterName
+                    ? `建议先从 ${resumableCharacterName} 的会话继续，再结合消息列表里的最近搜索词与快捷视图，能更快回到上一次录屏或答辩节奏。`
+                    : "建议先在消息列表里使用最近搜索词、快捷视图或“继续上次会话”入口，尽量减少重新定位角色和剧情节点的时间。"}
+                </p>
+                <p className="mt-2 text-[11px] leading-relaxed text-[#8fa2b8]">
+                  小技巧：消息列表搜索框支持 /、⌘/Ctrl + K 快速聚焦，输入后按 Enter 可直接进入首条匹配聊天。
+                </p>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {savedDataBadges.length > 0 ? (
+                  savedDataBadges.map((badge) => (
+                    <span
+                      key={badge}
+                      className="rounded-full bg-white px-2.5 py-1 text-[11px] leading-none text-[#7f93a8] border border-[#edf2f7]"
+                    >
+                      已保存 · {badge}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-[12px] text-[#b4bec8]">当前还没有检测到已保存的演示数据。</span>
+                )}
+              </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-[#b0bcc8]">
+                除聊天记录外，系统也会记住你上次搜索的关键词、最近搜过的标签、消息列表快捷视图、固定/静音/隐藏的聊天、最近继续的会话、未发送的聊天草稿和动态筛选状态，方便录屏或答辩时快速回到上一个演示节点。
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-[#b0bcc8]">
+                “近期互动会话”会统计当前浏览器里仍保留聊天记录、未发送草稿或未读主动消息的角色数量，方便你判断现在还能快速演示多少条有效链路。
+              </p>
+            </>
+          )}
         </div>
       </div>
 

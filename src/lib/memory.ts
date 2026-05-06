@@ -123,6 +123,7 @@ export interface UserSignals {
   prioritizeRecentChats?: boolean;
   prioritizeRecentInteractions?: boolean;
   expandMessageOverview?: boolean;
+  hideProfileDemoSummary?: boolean;
 }
 
 export function saveUserSignals(signals: UserSignals): void {
@@ -250,6 +251,18 @@ export function saveExpandMessageOverview(expanded: boolean): void {
 
 export function loadExpandMessageOverview(): boolean {
   return loadUserSignals()?.expandMessageOverview ?? false;
+}
+
+export function saveHideProfileDemoSummary(hidden: boolean): void {
+  const current = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
+  saveUserSignals({
+    ...current,
+    hideProfileDemoSummary: hidden,
+  });
+}
+
+export function loadHideProfileDemoSummary(): boolean {
+  return loadUserSignals()?.hideProfileDemoSummary ?? false;
 }
 
 export function isRecentChatWithinWindow(timestamp: number | null, windowMs: number): boolean {
@@ -483,6 +496,7 @@ export function getLocalStorageSummary(): LocalStorageSummary {
     hasRelationships: Boolean(relationships && Object.keys(relationships).length > 0),
     hasProactiveInbox: Boolean(proactiveInbox && Object.keys(proactiveInbox).length > 0),
     hasMomentsFilter: loadLastMomentsFilter() !== "all",
+    hideProfileDemoSummary: loadHideProfileDemoSummary(),
     hasRecentChat: Boolean(lastResumableChatCharacterId),
     lastOpenedChatAt: loadLastOpenedChatAt(),
     lastResumableChatCharacterId,
