@@ -50,6 +50,8 @@ import {
   EndingView,
   MyProfileTab,
 } from "@/components";
+import { useProactiveMessages } from "@/lib/use-proactive-messages";
+import { ProactiveNotification } from "@/components/ProactiveNotification";
 
 const DEFAULT_PROGRESS: Record<string, { stageProgress: number; hasFinished: boolean; endingId?: string }> = {
   xiaoyu: { stageProgress: 0, hasFinished: false },
@@ -206,6 +208,19 @@ export default function Home() {
   const [charProgress, setCharProgress] = useState<Record<string, {
     stageProgress: number; hasFinished: boolean; endingId?: string;
   }>>(() => getInitialProgressState());
+
+  // 主动消息轮询（online 模式下启用）
+  const chatMode = typeof window !== "undefined" ? (localStorage.getItem("linxi_chat_mode") || "offline") : "offline";
+  const onlineUserId = typeof window !== "undefined" ? (localStorage.getItem("linxi_user_id") || "local-user") : "local-user";
+  const proactiveMessages = useProactiveMessages({
+    userId: onlineUserId,
+    enabled: chatMode === "online",
+    pollIntervalMs: 120000, // 2分钟轮询
+  });
+
+  // 角色信息映射（用于主动消息通知展示）
+  const characterNames = useMemo(() => Object.fromEntries(characters.map((c) => [c.id, c.name])), []);
+  const characterAvatars = useMemo(() => Object.fromEntries(characters.map((c) => [c.id, c.avatar])), []);
 
   useEffect(() => {
     if (selectedStoryId) saveSelectedStory(selectedStoryId);
@@ -644,6 +659,19 @@ export default function Home() {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             {tab === "messages" && (
               <section id="messages-panel" role="tabpanel" aria-labelledby="messages-tab" className="flex-1 min-h-0">
+                {/* 在线模式下的主动消息通知 */}
+                {chatMode === "online" && proactiveMessages.entries.length > 0 && (
+                  <ProactiveNotification
+                    entries={proactiveMessages.entries}
+                    characterNames={characterNames}
+                    characterAvatars={characterAvatars}
+                    onEntryClick={(entry) => {
+                      proactiveMessages.markAsRead(entry.id);
+                      handleOpenChat(entry.characterId);
+                    }}
+                    onDismiss={(entryId) => proactiveMessages.markAsRead(entryId)}
+                  />
+                )}
                 <MessageListPage
                   statuses={charStatuses}
                   onSelectChat={handleOpenChat}
