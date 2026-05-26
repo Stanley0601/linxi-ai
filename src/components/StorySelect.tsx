@@ -120,7 +120,7 @@ function CharacterCard({
         }}
       >
         {/* 上半部分 - 角色图片（非全屏） */}
-        <div className="relative h-[55%] overflow-hidden">
+        <div className="relative h-[70%] overflow-hidden">
           <Image
             src={card.cardImage}
             alt={card.character.name}
