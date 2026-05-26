@@ -96,14 +96,14 @@ export async function POST(request: NextRequest) {
     const recentMessages = await getRecentMessages(conversation.id, 20);
     const chatHistory = recentMessages
       .reverse()
-      .map((m) => ({
+      .map((m: { role: string; content: string }) => ({
         role: m.role === "user" ? "user" : "assistant",
         content: m.content,
       }));
 
     // 6. 获取相关记忆
     const memories = await getMemories(body.userId, body.characterId, 5);
-    const memoryContext = memories.map((m) => m.content);
+    const memoryContext = memories.map((m: { content: string }) => m.content);
 
     // 7. 获取当前剧情阶段
     const stages = getStagesForCharacter(body.characterId);

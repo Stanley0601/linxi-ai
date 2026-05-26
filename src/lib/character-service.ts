@@ -130,7 +130,7 @@ export async function getAllCharactersFromDB(): Promise<Character[]> {
     });
 
     if (rows.length > 0) {
-      const characters = rows.map((r) => dbRowToCharacter(r as unknown as DBCharacterRow));
+      const characters = rows.map((r: unknown) => dbRowToCharacter(r as unknown as DBCharacterRow));
       allCharactersCache = { data: characters, expireAt: Date.now() + CACHE_TTL_MS };
       return characters;
     }

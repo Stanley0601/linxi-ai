@@ -156,7 +156,7 @@ export async function retrieveRelevantMemories(
       limit
     );
 
-    return results.filter((r) => r.similarity > 0.3); // 相似度阈值
+    return results.filter((r: { similarity: number }) => r.similarity > 0.3); // 相似度阈值
   }
 
   // 降级：关键词匹配
