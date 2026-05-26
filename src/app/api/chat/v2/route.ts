@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { runLinXiAgent } from "@/agent/graph";
-import { getCharacter } from "@/lib/characters";
+import { getCharacterFromDB } from "@/lib/character-service";
 import { getStagesForCharacter } from "@/lib/story-stages";
 import {
   getOrCreateConversation,
@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. 获取角色信息（从代码配置，后续从DB）
-    const character = getCharacter(body.characterId);
+    // 1. 获取角色信息（从数据库，支持热更新）
+    const character = await getCharacterFromDB(body.characterId);
     if (!character) {
       return NextResponse.json(
         { error: "Character not found" },
