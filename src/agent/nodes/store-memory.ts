@@ -1,11 +1,11 @@
 /**
- * 记忆存储节点
+ * 记忆存储节点（向量版）
  * 
- * 将对话中产生的重要信息持久化到记忆系统。
- * 包括：用户提到的事实、偏好、关系事件等。
+ * 将对话中产生的重要信息持久化到向量记忆系统。
  */
 
 import type { AgentStateType } from "../state";
+import { storeMemoriesBatch } from "@/lib/vector-memory";
 
 /**
  * 从用户消息中提取值得记忆的信息
@@ -16,7 +16,7 @@ function extractMemoriesFromMessage(
 ): Array<{ type: string; content: string; importance: number }> {
   const memories: Array<{ type: string; content: string; importance: number }> = [];
 
-  // 提取事实类信息（"我是..."、"我在..."、"我喜欢..."）
+  // 提取事实类信息
   const factPatterns = [
     /我(?:是|在|叫|住在|学的是|做的是|工作是)(.{2,30})/,
     /我(?:喜欢|讨厌|害怕|擅长|不擅长)(.{2,20})/,
@@ -43,40 +43,50 @@ function extractMemoriesFromMessage(
     });
   }
 
+  // 鼓励/安慰类消息说明用户的态度倾向
+  if ((intent === "encourage" || intent === "comfort") && userMessage.length > 15) {
+    memories.push({
+      type: "emotion",
+      content: `用户表达了${intent === "encourage" ? "鼓励" : "安慰"}：${userMessage.slice(0, 60)}`,
+      importance: 0.5,
+    });
+  }
+
   return memories;
 }
 
 /**
- * 持久化记忆到存储
+ * 持久化记忆到向量数据库
  */
 export async function storeMemoryNode(
   state: AgentStateType
 ): Promise<Partial<AgentStateType>> {
-  // 从用户消息中提取新记忆
-  const extractedMemories = extractMemoriesFromMessage(
-    state.userMessage,
-    state.userIntent
-  );
-
-  // 合并节点间传递的新记忆
-  const allNewMemories = [...state.newMemories, ...extractedMemories];
-
-  if (allNewMemories.length > 0) {
-    // TODO: 产品化后写入数据库
-    // await db.memory.createMany({
-    //   data: allNewMemories.map(m => ({
-    //     userId: state.userId,
-    //     characterId: state.characterId,
-    //     type: m.type,
-    //     content: m.content,
-    //     importance: m.importance,
-    //   }))
-    // });
-
-    console.log(
-      `[StoreMemory] Saved ${allNewMemories.length} memories for user=${state.userId}`
+  try {
+    // 从用户消息中提取新记忆
+    const extractedMemories = extractMemoriesFromMessage(
+      state.userMessage,
+      state.userIntent
     );
-  }
 
-  return { newMemories: [] }; // 清空已处理的记忆
+    // 合并节点间传递的新记忆
+    const allNewMemories = [...state.newMemories, ...extractedMemories];
+
+    if (allNewMemories.length > 0) {
+      // 写入向量数据库
+      await storeMemoriesBatch(
+        state.userId,
+        state.characterId,
+        allNewMemories
+      );
+
+      console.log(
+        `[StoreMemory] Saved ${allNewMemories.length} memories for user=${state.userId}, char=${state.characterId}`
+      );
+    }
+
+    return { newMemories: [] }; // 清空已处理的记忆
+  } catch (error) {
+    console.error("[StoreMemory] Error:", error);
+    return { newMemories: [] };
+  }
 }
