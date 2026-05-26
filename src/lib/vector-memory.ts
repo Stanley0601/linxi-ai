@@ -16,7 +16,6 @@ import prisma from "./db/index";
 const EMBEDDING_API_KEY = process.env.LLM_API_KEY;
 const EMBEDDING_BASE_URL = process.env.EMBEDDING_BASE_URL || process.env.LLM_BASE_URL || "https://api.deepseek.com/v1";
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "text-embedding-3-small";
-const EMBEDDING_DIMENSION = 1536;
 
 // ============================================
 // Embedding 生成

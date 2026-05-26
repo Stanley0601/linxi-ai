@@ -692,6 +692,8 @@ export default function Home() {
             userProfile={userProfile}
             relationship={relationships[activeChar.id] || null}
             proactiveEntry={activeProactiveEntry}
+            chatMode={(typeof window !== "undefined" && localStorage.getItem("linxi_chat_mode") === "online") ? "online" : "offline"}
+            userId={typeof window !== "undefined" ? (localStorage.getItem("linxi_user_id") || "local-user") : "local-user"}
             onEnd={(eid, relationship) => handleChatEnd(activeChar.id, eid, relationship)}
             onBack={(relationship) => {
               if (activeChar.id) {

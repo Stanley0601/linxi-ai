@@ -6,6 +6,7 @@ import type { Character, ChatMsg, ProactiveInboxEntry, RelationshipState, UserPr
 import { getChatInterestSummary, initChatState, handleUserMessage, type ChatState } from "@/lib/chat-engine";
 import { clearChatDraft, loadChatDraft, loadChatHistory, saveChatDraft, saveChatHistory } from "@/lib/memory";
 import { getWeatherCareLine } from "@/lib/weather-context";
+import { sendMessageToAgent, type ChatMode } from "@/lib/agent-client";
 import { MsgBubble, TypingBubble } from "./ChatBubbles";
 import { QQ_BLUE } from "@/lib/constants";
 
@@ -92,13 +93,15 @@ function getReplyToneHint(relationship: RelationshipState | null): string {
   }
 }
 
-export default function ChatView({ char, userProfile, relationship, proactiveEntry, onEnd, onBack }: {
+export default function ChatView({ char, userProfile, relationship, proactiveEntry, onEnd, onBack, chatMode = "offline", userId = "local-user" }: {
   char: Character;
   userProfile: UserProfile | null;
   relationship: RelationshipState | null;
   proactiveEntry?: ProactiveInboxEntry | null;
   onEnd: (endingId: string, relationship: RelationshipState) => void;
   onBack: (relationship: RelationshipState) => void;
+  chatMode?: ChatMode;
+  userId?: string;
 }) {
   const initialSession = useMemo(
     () => createInitialChatSession(char.id, userProfile, relationship, proactiveEntry),
@@ -208,14 +211,71 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
     setUserTurn(false);
     setInput("");
 
-    const newState = handleUserMessage(state, msgText);
-    setState(newState);
-    setQueue([
-      { id: `u-${Date.now()}`, from: "user", type: "text", text: msgText, delay: 0, typing: 0 },
-      ...newState.pendingQueue,
-    ]);
-    setSuggestions(newState.suggestedReplies);
-  }, [char.id, input, userTurn, state]);
+    if (chatMode === "online") {
+      // Online 模式：调用后端 LangGraph Agent
+      const userMsg: ChatMsg = { id: `u-${Date.now()}`, from: "user", type: "text", text: msgText, delay: 0, typing: 0 };
+      setDisplayed((prev) => [...prev, userMsg]);
+      setTyping(true);
+      scrollBottom();
+
+      sendMessageToAgent({
+        userId,
+        characterId: char.id,
+        userMessage: msgText,
+      }).then((response) => {
+        setTyping(false);
+        if (response) {
+          const replyMsgs: ChatMsg[] = response.replies.map((r, i) => ({
+            id: `ai-${Date.now()}-${i}`,
+            from: "char" as const,
+            type: "text" as const,
+            text: r.text,
+            delay: r.delay,
+            typing: 400 + i * 200,
+          }));
+          setQueue(replyMsgs);
+
+          // 更新本地关系状态
+          setState((prev) => ({
+            ...prev,
+            relationship: {
+              ...prev.relationship,
+              familiarity: response.relationship.familiarity,
+              chemistry: response.relationship.chemistry,
+              stage: response.relationship.stage as RelationshipState["stage"],
+            },
+          }));
+
+          if (response.shouldAdvanceStage) {
+            setState((prev) => ({
+              ...prev,
+              currentStageIndex: Math.min(prev.currentStageIndex + 1, prev.stages.length - 1),
+              turnsInCurrentStage: 0,
+            }));
+          }
+
+          if (response.shouldEndConversation && response.endingId) {
+            setState((prev) => ({ ...prev, isFinished: true, endingId: response.endingId }));
+          }
+        } else {
+          // API 失败，回退到 offline
+          setUserTurn(true);
+        }
+      }).catch(() => {
+        setTyping(false);
+        setUserTurn(true);
+      });
+    } else {
+      // Offline 模式：使用前端状态机（原有逻辑）
+      const newState = handleUserMessage(state, msgText);
+      setState(newState);
+      setQueue([
+        { id: `u-${Date.now()}`, from: "user", type: "text", text: msgText, delay: 0, typing: 0 },
+        ...newState.pendingQueue,
+      ]);
+      setSuggestions(newState.suggestedReplies);
+    }
+  }, [char.id, input, userTurn, state, chatMode, userId, scrollBottom]);
 
   const handleInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Escape") {
