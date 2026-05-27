@@ -58,8 +58,6 @@ export default function Landing({ onStart }: { onStart: () => void }) {
     <motion.div
       className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden"
       style={{ background: "linear-gradient(180deg, #05051a 0%, #0d1b2a 40%, #1b2838 100%)" }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
       {/* 背景粒子/星空效果 */}

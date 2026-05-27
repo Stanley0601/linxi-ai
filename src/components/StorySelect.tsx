@@ -233,8 +233,6 @@ export default function StorySelect({ onSelect }: { onSelect: (characterId: stri
     <motion.div
       className="min-h-screen flex flex-col safe-area-top"
       style={{ background: "linear-gradient(180deg, #08081a 0%, #0f0f24 50%, #141428 100%)" }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
       {/* Header */}
