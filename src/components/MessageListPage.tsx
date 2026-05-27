@@ -535,7 +535,7 @@ export default function MessageListPage({ statuses, onSelectChat, onSelectProfil
         )}
         {recentSearchTags.length === 0 && !normalizedQuery && (
           <p className="mt-[8px] text-[11px] text-[#c0c9d4]">
-            搜索过 2 个字以上的关键词后，这里会自动保留最近记录，方便答辩时快速回到目标聊天。
+            搜索角色名或话题关键词
           </p>
         )}
         <div className="mt-[8px] flex items-center gap-[8px] overflow-x-auto">
@@ -559,77 +559,9 @@ export default function MessageListPage({ statuses, onSelectChat, onSelectProfil
             );
           })}
         </div>
-        <p className="mt-[6px] text-[11px] text-[#b0bcc8]">
-          支持 / 或 ⌘ / Ctrl + K 快速搜索，按 Enter 可打开首条结果，按 Escape 可清空或退出搜索。
-        </p>
-        <p className="mt-[4px] text-[11px] text-[#c0c9d4]">
-          {quickFilterHint}
-        </p>
-        {canPrioritizeRecentChat && (
-          <button
-            type="button"
-            onClick={() => setPrioritizeRecentChats((current) => !current)}
-            className="mt-[8px] inline-flex items-center gap-[8px] rounded-full px-[10px] py-[6px] text-[11px] leading-none"
-            style={{
-              background: prioritizeRecentChats ? "rgba(52, 168, 83, 0.10)" : "#f5f6f8",
-              color: prioritizeRecentChats ? "#2f855a" : "#8b98a8",
-            }}
-            aria-pressed={prioritizeRecentChats}
-            title={prioritizeRecentChats ? "关闭最近打开聊天优先" : "开启最近打开聊天优先"}
-          >
-            <span>{prioritizeRecentChats ? "已开启最近聊天优先" : "开启最近聊天优先"}</span>
-            {recentChatHint && <span className="text-[10px] opacity-75">{recentChatHint}</span>}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => setPrioritizeRecentInteractions((current) => !current)}
-          className="mt-[8px] inline-flex items-center gap-[8px] rounded-full px-[10px] py-[6px] text-[11px] leading-none"
-          style={{
-            background: prioritizeRecentInteractions ? "rgba(0, 145, 255, 0.10)" : "#f5f6f8",
-            color: prioritizeRecentInteractions ? QQ_BLUE : "#8b98a8",
-          }}
-          aria-pressed={prioritizeRecentInteractions}
-          title={prioritizeRecentInteractions ? "关闭最近互动优先" : "开启最近互动优先"}
-        >
-          <span>{prioritizeRecentInteractions ? "已开启最近互动优先" : "开启最近互动优先"}</span>
-          <span className="text-[10px] opacity-75">未读 / 草稿 / 可继续会优先展示</span>
-        </button>
       </div>
 
       <div className="px-[16px] pb-[10px]">
-        <div className="flex items-center justify-between gap-[12px]">
-          <p className="text-[11px] text-[#b0bcc8]">聊天概览统计</p>
-          <button
-            type="button"
-            onClick={() => setExpandOverview((current) => !current)}
-            className="inline-flex items-center gap-[6px] rounded-full px-[10px] py-[5px] text-[11px] leading-none"
-            style={{ background: "#f5f6f8", color: "#7f93a8" }}
-            aria-expanded={expandOverview}
-            aria-controls="message-overview-chips"
-            title={expandOverview ? "收起概览统计" : "展开概览统计"}
-          >
-            <span>{expandOverview ? "收起概览" : "展开概览"}</span>
-            <span aria-hidden="true">{expandOverview ? "▴" : "▾"}</span>
-          </button>
-        </div>
-        {expandOverview ? (
-          <div id="message-overview-chips" className="mt-[8px] flex items-center gap-[8px] overflow-x-auto">
-            {overviewItems.map((item) => (
-              <span
-                key={item.label}
-                className="flex-shrink-0 rounded-full px-[10px] py-[6px] text-[11px] leading-none"
-                style={{ background: item.bg, color: item.color }}
-              >
-                {item.label} · {item.value}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p id="message-overview-chips" className="mt-[8px] text-[11px] text-[#c0c9d4]">
-            默认收起，减少首屏拥挤；需要时可展开查看未读、草稿、固定、静音与可继续会话概况。
-          </p>
-        )}
         {lastOpenedStatus && quickResumeHint && (
           <button
             type="button"
@@ -637,163 +569,12 @@ export default function MessageListPage({ statuses, onSelectChat, onSelectProfil
               saveLastOpenedChatCharacterId(lastOpenedStatus.characterId);
               onSelectChat(lastOpenedStatus.characterId);
             }}
-            className="mt-[8px] w-full rounded-2xl px-[12px] py-[10px] text-left transition-colors active:opacity-90"
+            className="w-full rounded-2xl px-[12px] py-[10px] text-left transition-colors active:opacity-90"
             style={{ background: `${QQ_BLUE}08`, border: `1px solid ${QQ_BLUE}18` }}
           >
-            <p className="text-[11px]" style={{ color: QQ_BLUE }}>继续上次会话</p>
+            <p className="text-[11px]" style={{ color: QQ_BLUE }}>继续上次对话</p>
             <p className="mt-[4px] text-[12px] text-[#5f6b7a] truncate">{quickResumeHint}</p>
-            {recentChatHint && (
-              <p className="mt-[4px] text-[11px] text-[#8fa2b8] truncate">{recentChatHint}</p>
-            )}
-            {prioritizeRecentChats && canPrioritizeRecentChat && (
-              <p className="mt-[4px] text-[11px] text-[#86a97f] truncate">当前列表会优先展示这个最近打开的聊天</p>
-            )}
           </button>
-        )}
-        {quickResumeCard && (
-          <button
-            type="button"
-            onClick={() => {
-              saveLastOpenedChatCharacterId(topResumableStatus.characterId);
-              onSelectChat(topResumableStatus.characterId);
-            }}
-            className="mt-[8px] w-full rounded-[20px] px-[14px] py-[12px] text-left transition-colors active:opacity-90"
-            style={{ background: "linear-gradient(135deg, rgba(0,145,255,0.08), rgba(56,189,248,0.14))", border: "1px solid rgba(0,145,255,0.12)" }}
-          >
-            <div className="flex items-start justify-between gap-[10px]">
-              <div className="min-w-0">
-                <p className="text-[12px] font-medium" style={{ color: QQ_BLUE }}>{quickResumeCard.title}</p>
-                <p className="mt-[4px] text-[11px] text-[#6f7f90] leading-relaxed">{quickResumeCard.subtitle}</p>
-                <p className="mt-[6px] text-[12px] text-[#5f6b7a] truncate">{quickResumeCard.preview}</p>
-              </div>
-              <span className="flex-shrink-0 rounded-full bg-white/80 px-[8px] py-[4px] text-[10px] text-[#7f93a8]">
-                秒回演示
-              </span>
-            </div>
-          </button>
-        )}
-        <p id="message-search-summary" className="mt-[8px] text-[12px] text-[#a8b3bf]" aria-live="polite">
-          {searchResultText}
-        </p>
-        {matchedSummary && (
-          <p className="mt-[4px] text-[11px] text-[#8fa2b8]" aria-live="polite">
-            {matchedSummary}，按 Enter 可直接进入首条匹配聊天。
-          </p>
-        )}
-        {searchCoverageText && (
-          <p className="mt-[4px] text-[11px] text-[#b0bcc8]" aria-live="polite">
-            {searchCoverageText}
-          </p>
-        )}
-        {visibleSummaryText && (
-          <p className="mt-[4px] text-[11px] text-[#8fa2b8]" aria-live="polite">
-            {visibleSummaryText}
-          </p>
-        )}
-        <p className="mt-[4px] text-[11px] text-[#c0c9d4]" aria-live="polite">
-          {currentListModeText}
-        </p>
-        <p className="mt-[4px] text-[11px] text-[#b0bcc8]" aria-live="polite">
-          当前已固定 {pinnedCount} 个聊天
-        </p>
-        <p className="mt-[4px] text-[11px] text-[#b0bcc8]" aria-live="polite">
-          当前已静音 {mutedCount} 个聊天提醒
-        </p>
-        <p className="mt-[4px] text-[11px] text-[#b0bcc8]" aria-live="polite">
-          当前已隐藏 {hiddenMutedCount} 个静音聊天
-        </p>
-        <p className="mt-[4px] text-[11px] text-[#c0c9d4]" aria-live="polite">
-          长按右侧两个圆形按钮不需要，直接轻点即可快速静音或固定聊天。
-        </p>
-        <p className="mt-[4px] text-[11px] text-[#c0c9d4]" aria-live="polite">
-          默认会优先展示最近更值得回复的聊天；搜索时不会打乱匹配结果。
-        </p>
-        <p className="mt-[4px] text-[11px] text-[#8fa2b8]" aria-live="polite">
-          {recommendedNextStepText}
-        </p>
-        {pinFeedback && (
-          <p className="mt-[4px] text-[11px]" style={{ color: QQ_BLUE }} aria-live="polite">
-            {pinFeedback}
-          </p>
-        )}
-        {muteFeedback && (
-          <p className="mt-[4px] text-[11px] text-[#7f8a96]" aria-live="polite">
-            {muteFeedback}
-          </p>
-        )}
-        {hiddenMuteFeedback && (
-          <p className="mt-[4px] text-[11px] text-[#7f8a96]" aria-live="polite">
-            {hiddenMuteFeedback}
-          </p>
-        )}
-        {copyFeedback && (
-          <p className="mt-[4px] text-[11px]" style={{ color: QQ_BLUE }} aria-live="polite">
-            {copyFeedback}
-          </p>
-        )}
-        {showResetControls && (
-          <div className="mt-[8px] flex items-center gap-[8px] flex-wrap">
-            {normalizedQuery && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (!canCopySearchQuery) return;
-                  navigator.clipboard.writeText(searchQuery.trim())
-                    .then(() => setCopyFeedback(`已复制搜索词"${searchQuery.trim()}"`))
-                    .catch(() => setCopyFeedback("复制失败，请手动选择搜索词"));
-                }}
-                className="rounded-full px-[10px] py-[5px] text-[11px] leading-none"
-                style={{ background: "#f5f8fc", color: QQ_BLUE }}
-                disabled={!canCopySearchQuery}
-                title={canCopySearchQuery ? "复制当前搜索词，方便答辩或录屏时复用" : "当前环境暂不支持复制搜索词"}
-              >
-                复制搜索词
-              </button>
-            )}
-            {quickFilter !== "all" && (
-              <button
-                type="button"
-                onClick={() => setQuickFilter("all")}
-                className="rounded-full px-[10px] py-[5px] text-[11px] leading-none text-[#7f93a8] bg-[#eef2f6]"
-              >
-                返回全部视图
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                updateSearchQuery("");
-                setQuickFilter("all");
-              }}
-              className="rounded-full px-[10px] py-[5px] text-[11px] leading-none text-[#9aa7b5] bg-[#f5f6f8]"
-            >
-              恢复默认列表
-            </button>
-            {hasMutedChats && quickFilter !== "muted" && (
-              <button
-                type="button"
-                onClick={() => setQuickFilter("muted")}
-                className="rounded-full px-[10px] py-[5px] text-[11px] leading-none text-[#7f8a96] bg-[#eef2f6]"
-              >
-                查看已静音聊天
-              </button>
-            )}
-            {hasHiddenMutedChats && (
-              <button
-                type="button"
-                onClick={() => {
-                  const restored = loadHiddenMutedChatIds();
-                  setHiddenMutedChatIds([]);
-                  saveHiddenMutedChatIds([]);
-                  onHiddenMutedChatsChange?.([]);
-                  setHiddenMuteFeedback(`已恢复 ${restored.length} 个静音聊天到列表`);
-                }}
-                className="rounded-full px-[10px] py-[5px] text-[11px] leading-none text-[#7f8a96] bg-[#eef2f6]"
-              >
-                显示已隐藏静音
-              </button>
-            )}
-          </div>
         )}
       </div>
 
@@ -801,8 +582,7 @@ export default function MessageListPage({ statuses, onSelectChat, onSelectProfil
         {filteredStatuses.length === 0 && (
           <div className="px-[16px] py-[28px] text-center">
             <p className="text-[14px] text-[#8f9aa8]">没有找到匹配的聊天</p>
-            <p className="mt-[6px] text-[12px] text-[#b7c0cc]">试试搜索角色名、兴趣标签或最近消息关键词</p>
-            <p className="mt-[4px] text-[11px] text-[#c0c9d4]">如果只是想回到演示主列表，直接清空搜索或恢复默认列表就可以。</p>
+            <p className="mt-[6px] text-[12px] text-[#b7c0cc]">试试搜索角色名或话题关键词</p>
             <div className="mt-[10px] flex items-center justify-center gap-[8px] flex-wrap">
               <button
                 type="button"
@@ -979,17 +759,6 @@ export default function MessageListPage({ statuses, onSelectChat, onSelectProfil
                       {s.relationshipStage}
                     </span>
                   )}
-                  {typeof s.affinityScore === "number" && (
-                    <div className="flex items-center gap-[5px]">
-                      <span className="text-[10px] text-[#b3bfcc] leading-none">契合度</span>
-                      <div className="w-[44px] h-[4px] rounded-full bg-[#eef2f6] overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${s.affinityScore}%`, background: QQ_BLUE }} />
-                      </div>
-                    </div>
-                  )}
-                  {typeof s.familiarity === "number" && (
-                    <span className="text-[10px] text-[#b3bfcc] leading-none">熟悉度 {s.familiarity}%</span>
-                  )}
                 </div>
                 <div className="mt-[6px]">
                   <span
@@ -1001,26 +770,7 @@ export default function MessageListPage({ statuses, onSelectChat, onSelectProfil
                 </div>
                 {s.draftPreview && (
                   <div className="mt-[5px]">
-                    <span className="text-[11px] text-[#a79cf5] truncate block leading-none">未发送草稿已保存在当前浏览器</span>
-                  </div>
-                )}
-                {s.interestSummary && (
-                  <div className="mt-[6px] flex items-center gap-[5px]">
-                    <span className="text-[10px] px-[5px] py-[2px] rounded-full leading-none"
-                      style={{ background: "#f5f8fc", color: "#8fa2b8" }}>
-                      兴趣画像
-                    </span>
-                    <span className="text-[11px] text-[#a6b4c4] truncate leading-none">{s.interestSummary}</span>
-                  </div>
-                )}
-                {s.recommendedReason && (
-                  <div className="mt-[5px]">
-                    <span className="text-[11px] text-[#8fa2b8] truncate block leading-none">{s.recommendedReason}</span>
-                  </div>
-                )}
-                {rowRecentChatHint && (
-                  <div className="mt-[5px]">
-                    <span className="text-[11px] text-[#86a97f] truncate block leading-none">{rowRecentChatHint}</span>
+                    <span className="text-[11px] text-[#a79cf5] truncate block leading-none">草稿已保存</span>
                   </div>
                 )}
               </div>
