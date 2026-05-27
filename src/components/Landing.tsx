@@ -296,17 +296,17 @@ export default function Landing({ onStart }: { onStart: () => void }) {
               <motion.button
                 onClick={onStart}
                 type="button"
-                className="relative group px-12 py-4 rounded-full text-lg font-medium text-white overflow-hidden"
-                style={{ background: `linear-gradient(135deg, ${QQ_BLUE}, #7c3aed)` }}
+                className="relative group px-12 py-4 rounded-full text-lg font-medium text-white"
+                style={{ background: `linear-gradient(135deg, ${QQ_BLUE}, #7c3aed)`, overflow: "hidden" }}
                 whileHover={{ scale: 1.06, boxShadow: `0 8px 30px ${QQ_BLUE}40` }}
                 whileTap={{ scale: 0.94 }}
               >
                 {/* 光效扫动 */}
                 <motion.div
-                  className="absolute inset-0 opacity-25"
-                  animate={{ x: [-150, 250] }}
-                  transition={{ duration: 2.5, repeat: Infinity, ease: "linear", repeatDelay: 1 }}
-                  style={{ background: "linear-gradient(90deg, transparent, white, transparent)", width: 60 }}
+                  className="absolute top-0 bottom-0 w-[60px] opacity-25 pointer-events-none"
+                  animate={{ left: ["-60px", "calc(100% + 60px)"] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "linear", repeatDelay: 1.5 }}
+                  style={{ background: "linear-gradient(90deg, transparent, white, transparent)" }}
                 />
                 {/* 边框呼吸 */}
                 <motion.div

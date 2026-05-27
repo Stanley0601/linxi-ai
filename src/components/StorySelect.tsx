@@ -209,28 +209,21 @@ function CharacterCard({
 
 export default function StorySelect({ onSelect }: { onSelect: (characterId: string) => void }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [exiting, setExiting] = useState(false);
 
   const handleSwipeRight = useCallback(() => {
     const card = cardDataList[currentIndex];
     if (card) {
-      setExiting(true);
-      setTimeout(() => onSelect(card.character.id), 350);
+      onSelect(card.character.id);
     }
   }, [currentIndex, onSelect]);
 
   const handleSwipeLeft = useCallback(() => {
-    setExiting(true);
-    // 先让当前卡飞出，然后更新索引触发新卡进入
-    setTimeout(() => {
-      setCurrentIndex((prev) => (prev + 1) % cardDataList.length);
-      // 短暂延迟后恢复，让 AnimatePresence 有时间处理进出
-      requestAnimationFrame(() => setExiting(false));
-    }, 200);
+    setCurrentIndex((prev) => (prev + 1) % cardDataList.length);
   }, []);
 
   const currentCard = cardDataList[currentIndex];
-  const nextCard = cardDataList[(currentIndex + 1) % cardDataList.length];
+  const nextIndex = (currentIndex + 1) % cardDataList.length;
+  const nextCard = cardDataList[nextIndex];
 
   return (
     <motion.div
@@ -260,25 +253,23 @@ export default function StorySelect({ onSelect }: { onSelect: (characterId: stri
 
       {/* 卡牌区域 */}
       <div className="flex-1 relative mx-4 mb-4 max-w-[380px] self-center w-full" style={{ minHeight: "520px" }}>
+        {/* 背景卡（始终渲染，不参与 AnimatePresence） */}
+        <CharacterCard
+          key={`bg-${nextIndex}`}
+          card={nextCard}
+          onSwipeRight={() => {}}
+          onSwipeLeft={() => {}}
+          isTop={false}
+        />
+        {/* 当前卡（参与动画进出） */}
         <AnimatePresence mode="popLayout">
-          {nextCard && !exiting && (
-            <CharacterCard
-              key={`bg-${(currentIndex + 1) % cardDataList.length}`}
-              card={nextCard}
-              onSwipeRight={() => {}}
-              onSwipeLeft={() => {}}
-              isTop={false}
-            />
-          )}
-          {currentCard && !exiting && (
-            <CharacterCard
-              key={`top-${currentIndex}`}
-              card={currentCard}
-              onSwipeRight={handleSwipeRight}
-              onSwipeLeft={handleSwipeLeft}
-              isTop={true}
-            />
-          )}
+          <CharacterCard
+            key={`top-${currentIndex}`}
+            card={currentCard}
+            onSwipeRight={handleSwipeRight}
+            onSwipeLeft={handleSwipeLeft}
+            isTop={true}
+          />
         </AnimatePresence>
       </div>
 
