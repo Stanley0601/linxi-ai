@@ -554,7 +554,7 @@ export default function MessageListPage({ statuses, onSelectChat, onSelectProfil
                 aria-pressed={isActive}
                 title={isActive ? `取消${item.label}视图` : `切换到${item.label}视图`}
               >
-                {item.label} · {item.count}
+                {item.label}{item.count > 0 ? ` ${item.count}` : ""}
               </button>
             );
           })}

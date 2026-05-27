@@ -53,7 +53,17 @@ export type InterestTag =
   | "新闻时事"
   | "音乐"
   | "电影"
-  | "美食";
+  | "美食"
+  | "旅行"
+  | "摄影"
+  | "读书"
+  | "健身"
+  | "穿搭"
+  | "宠物"
+  | "心理学"
+  | "创业"
+  | "考研"
+  | "留学";
 
 export interface UserProfile {
   interestTags: InterestTag[];
@@ -61,6 +71,8 @@ export interface UserProfile {
   likedTopicTags?: InterestTag[];
   likedCharacterIds?: string[];
   city?: string;
+  nickname?: string;
+  avatarUrl?: string;
 }
 
 export type FamiliarityStage = "陌生" | "熟络" | "暧昧";

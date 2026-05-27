@@ -1,15 +1,48 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import Image from "next/image";
 import type { UserProfile } from "@/types";
-import { USER_AVATAR, QQ_BG } from "@/lib/constants";
+import { USER_AVATAR, QQ_BG, QQ_BLUE } from "@/lib/constants";
 
-export default function MyProfileTab({ userProfile, onResetAll, onResumeLastChat }: {
+// 预设头像列表
+const AVATAR_OPTIONS = [
+  "/avatars/user.png",
+  "/avatars/xiaoyu-card.png",
+  "/avatars/haoran-card.png",
+  "/avatars/momo-card.png",
+  "/avatars/zhiqiu-card.png",
+  "/avatars/beichen-card.png",
+];
+
+export default function MyProfileTab({ userProfile, onResetAll, onResumeLastChat, onUpdateProfile }: {
   userProfile?: UserProfile | null;
   onResetAll: () => void;
   onResumeLastChat: () => void;
+  onUpdateProfile?: (updates: Partial<UserProfile>) => void;
 }) {
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(userProfile?.nickname || "旁观者");
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+
+  const currentAvatar = userProfile?.avatarUrl || USER_AVATAR;
+  const currentName = userProfile?.nickname || "旁观者";
+
+  const handleSaveName = useCallback(() => {
+    const trimmed = nameInput.trim();
+    if (trimmed && trimmed !== currentName && onUpdateProfile) {
+      onUpdateProfile({ nickname: trimmed });
+    }
+    setEditingName(false);
+  }, [nameInput, currentName, onUpdateProfile]);
+
+  const handleSelectAvatar = useCallback((url: string) => {
+    if (onUpdateProfile) {
+      onUpdateProfile({ avatarUrl: url });
+    }
+    setShowAvatarPicker(false);
+  }, [onUpdateProfile]);
+
   const handleResetClick = useCallback(() => {
     if (typeof window !== "undefined") {
       const shouldReset = window.confirm("确认要清空所有聊天记录和进度吗？此操作无法撤销。");
@@ -26,14 +59,73 @@ export default function MyProfileTab({ userProfile, onResetAll, onResumeLastChat
       </div>
 
       {/* 用户头像和名字 */}
-      <div className="bg-white px-4 py-5 mt-2 flex items-center gap-4">
-        <div className="w-[64px] h-[64px] rounded-full overflow-hidden">
-          <Image src={USER_AVATAR} alt="我" width={64} height={64} className="object-cover" />
+      <div className="bg-white px-4 py-5 mt-2">
+        <div className="flex items-center gap-4">
+          {/* 头像（点击换头像） */}
+          <button
+            type="button"
+            onClick={() => setShowAvatarPicker(!showAvatarPicker)}
+            className="relative w-[64px] h-[64px] rounded-full overflow-hidden flex-shrink-0 group"
+          >
+            <Image src={currentAvatar} alt="头像" width={64} height={64} className="object-cover" />
+            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity">
+              <span className="text-white text-[10px]">换头像</span>
+            </div>
+          </button>
+
+          {/* 名字（点击编辑） */}
+          <div className="flex-1">
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value.slice(0, 12))}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); }}
+                  className="flex-1 text-[17px] font-semibold text-[#111] border-b-2 border-blue-400 outline-none bg-transparent py-0.5"
+                  placeholder="输入昵称"
+                  autoFocus
+                  maxLength={12}
+                />
+                <button onClick={handleSaveName} className="text-[13px] px-2 py-1 rounded" style={{ color: QQ_BLUE }}>
+                  完成
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setNameInput(currentName); setEditingName(true); }}
+                className="text-left"
+              >
+                <p className="text-[18px] font-semibold text-[#111]">{currentName}</p>
+                <p className="text-[12px] text-[#bbb] mt-0.5">点击修改昵称</p>
+              </button>
+            )}
+          </div>
         </div>
-        <div>
-          <p className="text-[18px] font-semibold text-[#111]">旁观者</p>
-          <p className="text-[13px] text-[#999] mt-0.5">总有人愿意在深夜听你说话</p>
-        </div>
+
+        {/* 头像选择器 */}
+        {showAvatarPicker && (
+          <div className="mt-4 pt-4 border-t border-[#f0f0f0]">
+            <p className="text-[13px] text-[#999] mb-3">选择头像</p>
+            <div className="flex gap-3 flex-wrap">
+              {AVATAR_OPTIONS.map((url) => (
+                <button
+                  key={url}
+                  type="button"
+                  onClick={() => handleSelectAvatar(url)}
+                  className="w-[52px] h-[52px] rounded-full overflow-hidden transition-all"
+                  style={{
+                    border: currentAvatar === url ? `3px solid ${QQ_BLUE}` : "3px solid transparent",
+                    opacity: currentAvatar === url ? 1 : 0.7,
+                  }}
+                >
+                  <Image src={url} alt="头像选项" width={52} height={52} className="object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 个人信息 */}
@@ -81,7 +173,6 @@ export default function MyProfileTab({ userProfile, onResetAll, onResumeLastChat
         </div>
       </div>
 
-      {/* 底部 */}
       <div className="mt-6 text-center text-[12px] text-[#ddd] pb-8">
         <p>灵犀 v1.0</p>
       </div>

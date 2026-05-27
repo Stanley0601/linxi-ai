@@ -24,18 +24,18 @@ export default function InterestSelect({
   const [selected, setSelected] = useState<InterestTag[]>(initialSelected);
   const [city, setCity] = useState(initialCity || "深圳");
 
-  const canContinue = selected.length >= 3 && selected.length <= 5;
+  const canContinue = selected.length >= 1;
   const hintText = useMemo(() => {
-    if (selected.length < 3) return "至少选 3 个，让TA更像真的认识你。";
-    if (selected.length > 5) return "最多选 5 个，保持画像轻一点更自然。";
-    return `已选 ${selected.length} 个，刚好适合做演示。`;
+    if (selected.length === 0) return "选择你感兴趣的话题，TA聊天时会更懂你";
+    if (selected.length > 8) return "选太多啦，建议保留最感兴趣的几个";
+    return `已选 ${selected.length} 个`;
   }, [selected.length]);
   const canReset = selected.length > 0;
 
   const toggleTag = (tag: InterestTag) => {
     setSelected(prev => {
       if (prev.includes(tag)) return prev.filter(item => item !== tag);
-      if (prev.length >= 5) return prev;
+      if (prev.length >= 8) return prev;
       return [...prev, tag];
     });
   };
@@ -67,12 +67,12 @@ export default function InterestSelect({
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
         >
-          <p className="text-[13px] text-white/40 mb-2">进入 {character.name} 的故事前</p>
+          <p className="text-[13px] text-white/40 mb-2">和 {character.name} 聊天前</p>
           <h1 className="text-[28px] font-bold text-white leading-tight mb-3">
-            让TA多了解你一点
+            选点你感兴趣的
           </h1>
           <p className="text-[14px] leading-7 text-white/55 mb-6">
-            选 3-5 个你平时会关注的话题。这样她和你聊天时，偶尔会像真的活在同一个世界里。
+            选几个你平时关注的话题，聊天时会更有共同语言
           </p>
 
           <div className="flex flex-wrap gap-3 mb-4">
@@ -141,17 +141,6 @@ export default function InterestSelect({
             </div>
           </div>
 
-          <div
-            className="rounded-2xl px-4 py-4 mb-6"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.06)" }}
-          >
-            <p className="text-[12px] text-white/35 mb-2">你会看到的效果</p>
-            <p className="text-[14px] text-white/70 leading-7">
-              比如你选了“足球”和“科技”，她可能会突然说：
-              <span className="text-white/95">“刚刚刷到曼城那场球，真的离谱…你也会看这种吗？”</span>
-            </p>
-          </div>
-
           <button
             type="button"
             onClick={() => canContinue && onConfirm({ tags: selected, city })}
@@ -162,7 +151,7 @@ export default function InterestSelect({
               opacity: canContinue ? 1 : 0.6,
             }}
           >
-            开始进入她的人生剧本
+            开始聊天
           </button>
         </motion.div>
       </div>

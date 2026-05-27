@@ -307,7 +307,7 @@ export default function Home() {
           characterId: d.characterId,
           stageId: d.stageId,
           text: d.photoDesc ? `${d.text}\n${d.photoDesc}` : d.text,
-          imageEmoji: d.type === "food" ? "🍽️" : d.type === "selfie" ? "🤳" : d.type === "photo" ? "📸" : d.type === "music" ? "🎵" : undefined,
+          imageUrl: d.type === "food" ? "/moments/cafe-window.png" : d.type === "selfie" ? "/moments/library-study.png" : d.type === "photo" ? "/moments/art-sketch.png" : d.type === "music" ? "/moments/guitar-lyrics.png" : undefined,
           time: d.time === "深夜" ? "昨天 23:47" : d.time === "凌晨" ? "今天 02:13" : d.time === "上午" ? "今天 10:23" : d.time === "中午" ? "今天 12:08" : d.time === "下午" ? "今天 15:42" : d.time === "傍晚" ? "今天 18:15" : d.time === "晚上" ? "今天 21:30" : "刚刚",
           likes: getStableLikeCount(d.id),
           likedByUser: false,
@@ -698,6 +698,9 @@ export default function Home() {
                 <MyProfileTab
                   userProfile={userProfile}
                   onResetAll={handleResetAll}
+                  onUpdateProfile={(updates) => {
+                    setUserProfile((prev) => prev ? { ...prev, ...updates, updatedAt: Date.now() } : null);
+                  }}
                   onResumeLastChat={() => {
                     const resumableCharacterId = getLastResumableChatCharacterId();
                     const resumableStatus = (resumableCharacterId
