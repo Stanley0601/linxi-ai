@@ -209,13 +209,14 @@ export default function Home() {
     stageProgress: number; hasFinished: boolean; endingId?: string;
   }>>(() => getInitialProgressState());
 
-  // 主动消息轮询（online 模式下启用）
+  // 主动消息轮询（基于实时新闻 + 用户兴趣）
   const chatMode = typeof window !== "undefined" ? (localStorage.getItem("linxi_chat_mode") || "offline") : "offline";
   const onlineUserId = typeof window !== "undefined" ? (localStorage.getItem("linxi_user_id") || "local-user") : "local-user";
   const proactiveMessages = useProactiveMessages({
     userId: onlineUserId,
-    enabled: chatMode === "online",
-    pollIntervalMs: 120000, // 2分钟轮询
+    enabled: true, // 始终启用，CloudBase 云函数处理
+    pollIntervalMs: 180000, // 3分钟轮询
+    interestTags: userProfile?.interestTags,
   });
 
   // 角色信息映射（用于主动消息通知展示）
@@ -267,6 +268,38 @@ export default function Home() {
   useEffect(() => {
     saveProactiveInbox(proactiveInbox);
   }, [proactiveInbox]);
+
+  // 将云函数主动消息同步到 proactiveInbox（消息列表展示用）
+  useEffect(() => {
+    if (proactiveMessages.entries.length === 0) return;
+    const updates: Record<string, typeof proactiveInbox[string]> = {};
+    for (const entry of proactiveMessages.entries) {
+      if (!proactiveInbox[entry.characterId]) {
+        updates[entry.characterId] = {
+          characterId: entry.characterId,
+          stageId: "proactive-news",
+          messages: entry.messages.map((m, i) => ({
+            id: `proactive-${entry.id}-${i}`,
+            from: "char" as const,
+            type: "text" as const,
+            text: m.text,
+            delay: m.delay,
+            typing: 300,
+          })),
+          triggerCondition: "return_visit",
+          id: entry.id,
+          unread: true,
+          preview: entry.preview,
+          lastMessageTime: new Date(entry.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }),
+          topicTag: entry.topicTag as typeof proactiveInbox[string]["topicTag"],
+          createdAt: new Date(entry.createdAt).getTime(),
+        };
+      }
+    }
+    if (Object.keys(updates).length > 0) {
+      setTimeout(() => setProactiveInbox(prev => ({ ...prev, ...updates })), 0);
+    }
+  }, [proactiveMessages.entries]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [liveStatuses, setLiveStatuses] = useState<Record<string, string>>({});
 
@@ -659,8 +692,8 @@ export default function Home() {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             {tab === "messages" && (
               <section id="messages-panel" role="tabpanel" aria-labelledby="messages-tab" className="flex-1 min-h-0">
-                {/* 在线模式下的主动消息通知 */}
-                {chatMode === "online" && proactiveMessages.entries.length > 0 && (
+                {/* 基于实时新闻的主动消息通知 */}
+                {proactiveMessages.entries.length > 0 && (
                   <ProactiveNotification
                     entries={proactiveMessages.entries}
                     characterNames={characterNames}
