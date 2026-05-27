@@ -25,7 +25,7 @@ const cardDataList: CardData[] = [
     cardImage: "/avatars/xiaoyu-card.png",
     genre: "成长 · 选择",
     tagline: "保研还是创业，人生的第一个岔路口",
-    synopsis: "她拿到了保研名额，却偷偷面了AI创业公司。深夜找你倾诉时，你的每一句话都在影响她的选择。",
+    synopsis: "她拿到了保研名额，却偷偷面了AI创业公司。深夜找你倾诉时，你是唯一愿意听她说话的人。",
     tags: ["校园", "职业选择", "深夜倾诉"],
     accentColor: "#f472b6",
   },
@@ -106,9 +106,10 @@ function CharacterCard({
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       dragElastic={0.8}
       onDragEnd={handleDragEnd}
-      initial={{ scale: isTop ? 1 : 0.92, y: isTop ? 0 : 12 }}
-      animate={{ scale: isTop ? 1 : 0.92, y: isTop ? 0 : 12 }}
-      exit={{ x: 300, opacity: 0, rotate: 15, transition: { duration: 0.35 } }}
+      initial={isTop ? { scale: 0.95, y: 20, opacity: 0 } : { scale: 0.92, y: 12 }}
+      animate={{ scale: isTop ? 1 : 0.92, y: isTop ? 0 : 12, opacity: 1 }}
+      exit={{ x: -300, opacity: 0, rotate: -12, transition: { duration: 0.4, ease: "easeIn" } }}
+      transition={isTop ? { type: "spring", stiffness: 300, damping: 25 } : { duration: 0.3 }}
     >
       {/* 卡牌容器 - 有明确边框和圆角 */}
       <div
@@ -220,10 +221,12 @@ export default function StorySelect({ onSelect }: { onSelect: (characterId: stri
 
   const handleSwipeLeft = useCallback(() => {
     setExiting(true);
+    // 先让当前卡飞出，然后更新索引触发新卡进入
     setTimeout(() => {
       setCurrentIndex((prev) => (prev + 1) % cardDataList.length);
-      setExiting(false);
-    }, 350);
+      // 短暂延迟后恢复，让 AnimatePresence 有时间处理进出
+      requestAnimationFrame(() => setExiting(false));
+    }, 200);
   }, []);
 
   const currentCard = cardDataList[currentIndex];

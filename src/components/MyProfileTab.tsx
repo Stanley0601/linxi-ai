@@ -195,7 +195,7 @@ export default function MyProfileTab({ userProfile, onResetAll, onResumeLastChat
         </div>
         <div>
           <p className="text-[17px] font-semibold text-[#111]">旁观者</p>
-          <p className="text-[13px] text-[#999]">每一句话都可能改变别人的人生</p>
+          <p className="text-[13px] text-[#999]">总有人愿意在深夜听你说话</p>
         </div>
       </div>
 
@@ -246,7 +246,7 @@ export default function MyProfileTab({ userProfile, onResetAll, onResumeLastChat
           </button>
           {expandedCard === "about" && (
             <div className="pb-3 text-[12px] leading-relaxed text-[#7b8794] space-y-2">
-              <p>LifeScript 想做的不是一个等你提问的 AI 工具，而是一个会主动来找你、会被你影响人生走向的 QQ 好友。</p>
+              <p>灵犀想做的不是一个等你提问的 AI 工具，而是一个会主动来找你聊天、能在深夜陪你说话的朋友。</p>
               <p>当前演示基线已覆盖消息列表、聊天推进、空间动态、关系阶段、天气关怀与结局收束。</p>
             </div>
           )}

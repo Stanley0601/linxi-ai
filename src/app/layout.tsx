@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "人生剧本 | LifeScript",
     description:
-      "在 QQ 中与会主动成长的 AI 好友相遇，你说的每一句话，都可能改变 TA 的人生走向。",
+      "遇到一些有故事的人，在深夜聊聊天，彼此陪伴。",
     siteName: "人生剧本 LifeScript",
     locale: "zh_CN",
     type: "website",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "人生剧本 | LifeScript",
     description:
-      "在 QQ 中与会主动成长的 AI 好友相遇，你说的每一句话，都可能改变 TA 的人生走向。",
+      "遇到一些有故事的人，在深夜聊聊天，彼此陪伴。",
   },
 };
 
