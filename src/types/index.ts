@@ -169,7 +169,8 @@ export interface MomentPost {
   stageId: string;           // 关联的剧情阶段
   text: string;
   imageDesc?: string;        // 配图描述（AI角色"拍的照片"）
-  imageEmoji?: string;       // 配图用emoji代替（demo阶段）
+  imageEmoji?: string;       // 配图用emoji代替（fallback）
+  imageUrl?: string;         // 真实配图URL
   time: string;              // 显示时间 "3小时前" / "昨天 22:15"
   likes: number;
   likedByUser: boolean;
