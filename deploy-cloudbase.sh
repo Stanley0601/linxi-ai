@@ -17,9 +17,9 @@ fi
 # 2. 确保 next.config 是静态导出模式
 # （已在 next.config.ts 中配置 output: "export"）
 
-# 3. 构建
+# 3. 构建（使用环境变量启用静态导出）
 echo "🔨 构建中..."
-npm run build
+STATIC_EXPORT=true npm run build
 
 # 4. 恢复 API routes
 if [ "$API_MOVED" = true ]; then

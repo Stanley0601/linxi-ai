@@ -41,9 +41,27 @@ export interface AgentChatResponse {
 // API 调用
 // ============================================
 
+// 云函数地址（CloudBase HTTP 访问服务）
+const CLOUD_FUNCTION_URL =
+  "https://linxi-d2gcj01lm1b6d05c8-1426415964.ap-shanghai.app.tcloudbase.com/chat";
+
+// 判断是否为静态部署模式（无本地后端 API）
+function isStaticDeployment(): boolean {
+  if (typeof window === "undefined") return false;
+  // 如果当前是 CloudBase 域名 或 本地 API 不可达，使用云函数
+  return window.location.hostname.includes("tcloudbaseapp.com")
+    || window.location.hostname.includes("tcloudbase.com");
+}
+
 export async function sendMessageToAgent(
   request: AgentChatRequest
 ): Promise<AgentChatResponse> {
+  if (isStaticDeployment()) {
+    // 静态部署模式：调用 CloudBase 云函数
+    return sendMessageToCloudFunction(request);
+  }
+
+  // 本地开发/服务器模式：调用本地 API
   const response = await fetch("/api/chat/v2", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -56,6 +74,45 @@ export async function sendMessageToAgent(
   }
 
   return response.json();
+}
+
+/**
+ * 调用 CloudBase 云函数（方案 B）
+ * 云函数返回格式比完整 Agent 简单，需要适配为 AgentChatResponse
+ */
+async function sendMessageToCloudFunction(
+  request: AgentChatRequest
+): Promise<AgentChatResponse> {
+  const response = await fetch(CLOUD_FUNCTION_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      characterId: request.characterId,
+      userMessage: request.userMessage,
+      history: [], // TODO: 可以从前端传递最近对话历史
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Cloud function error: HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  // 适配为 AgentChatResponse 格式
+  return {
+    replies: data.replies || [{ text: "...", delay: 500 }],
+    relationship: {
+      familiarity: 0,
+      chemistry: 0,
+      stage: "认识",
+    },
+    shouldAdvanceStage: false,
+    shouldEndConversation: false,
+    endingId: null,
+    userIntent: "chat",
+    conversationId: `cloud-${Date.now()}`,
+  };
 }
 
 // ============================================
