@@ -1,0 +1,42 @@
+services:
+  # PostgreSQL + pgvector
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: linxi-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: linxi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-linxi2026}
+      POSTGRES_DB: linxi
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U linxi"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # 灵犀 Next.js 全栈应用
+  linxi-web:
+    build: .
+    container_name: linxi-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://linxi:${POSTGRES_PASSWORD:-linxi2026}@postgres:5432/linxi?schema=public
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.deepseek.com/v1}
+      - LLM_MODEL=${LLM_MODEL:-deepseek-chat}
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  pgdata:
