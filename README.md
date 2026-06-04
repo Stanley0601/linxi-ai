@@ -133,6 +133,60 @@ npm run verify
 
 适合在提交代码、发起 PR 或答辩前做一次完整自检。
 
+## Docker 全栈部署
+
+全栈版包含：Next.js 生产服务 + PostgreSQL 17 + pgvector。适合在新设备或服务器上快速部署。
+
+### 1. 拉取代码
+
+```bash
+git clone https://github.com/Stanley0601/lifescript.git
+cd lifescript
+git checkout feat/v12-unified-baseline
+```
+
+### 2. 创建运行时环境变量
+
+```bash
+cat > .env <<'EOF'
+POSTGRES_PASSWORD=请替换为强密码
+LLM_API_KEY=请替换为 DeepSeek API Key
+LLM_BASE_URL=https://api.deepseek.com/v1
+LLM_MODEL=deepseek-chat
+EOF
+```
+
+> `.env` 不会被提交，也已从 Docker 构建上下文排除。
+
+### 3. 构建并启动
+
+```bash
+docker compose up -d --build
+```
+
+首次启动时，应用容器会等待 PostgreSQL 就绪，然后自动执行：
+
+```bash
+npx prisma migrate deploy
+npx prisma db seed
+```
+
+访问：
+
+```text
+http://localhost:3000
+```
+
+服务器部署时，将 `localhost` 换成服务器 IP 或反向代理域名即可。
+
+### 4. 常用运维命令
+
+```bash
+docker compose ps
+docker compose logs -f linxi-web
+docker compose down
+```
+
 ## 当前版本亮点（V12）
 
 - 兴趣画像驱动的主动开场与推荐理由
