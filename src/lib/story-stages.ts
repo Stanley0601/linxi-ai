@@ -119,7 +119,7 @@ export function getHaoranStages(): StoryStage[] {
         sysMsg("—— 已添加好友 ——"),
         cm("char", "这么晚打扰了"),
         cm("char", "但我现在真的有点睡不着"),
-        cm("char", "我复旦金融硕士在读"),
+        cm("char", "我沪上财大金融硕士在读"),
         cm("char", "最近在和学长做量化策略"),
         cm("char", "结果…做得还不错"),
         cm("char", "现在出现了一个很离谱的选择"),

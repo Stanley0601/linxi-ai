@@ -5,6 +5,7 @@ import { buildSystemPrompt } from "@/lib/prompts";
 import { getStagesForCharacter } from "@/lib/story-stages";
 import { buildMoodPromptBlock } from "@/lib/mood-engine";
 import { parseLLMContent } from "@/lib/llm-parse";
+import { buildCrisisPromptBlock } from "@/lib/safety";
 
 /**
  * POST /api/chat
@@ -61,6 +62,11 @@ async function callLLM(body: ChatApiRequest): Promise<NextResponse> {
       history: [],
     });
     systemPrompt = systemPrompt + "\n\n" + moodBlock;
+  }
+
+  // 危机模式：干预指令放在最后，优先级最高
+  if (body.crisis) {
+    systemPrompt = systemPrompt + "\n\n" + buildCrisisPromptBlock();
   }
 
   const response = await fetch(`${BASE_URL}/chat/completions`, {

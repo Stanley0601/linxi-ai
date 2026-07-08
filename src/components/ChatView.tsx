@@ -7,6 +7,7 @@ import { getChatInterestSummary, initChatState, handleUserMessage, type ChatStat
 import { saveChatHistory, loadChatHistory, saveChatSummary, loadChatSummary } from "@/lib/memory";
 import { generateChatSummary } from "@/lib/chat-summary";
 import { saveSummaryRemote } from "@/lib/sync";
+import { detectCrisisSignal, CRISIS_RESOURCES_MESSAGE } from "@/lib/safety";
 import { getWeatherCareLine } from "@/lib/weather-context";
 import { MsgBubble, TypingBubble } from "./ChatBubbles";
 import { QQ_BLUE } from "@/lib/constants";
@@ -234,9 +235,24 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
     const newMood = updateMood(mood, msgText, state.turnsInCurrentStage);
     setMood(newMood);
 
+    // 危机信号检测（自伤/轻生倾向）
+    const isCrisis = detectCrisisSignal(msgText);
+
     // 先显示用户消息
     const userMsg: ChatMsg = { id: `u-${Date.now()}`, from: "user", type: "text", text: msgText, delay: 0, typing: 0 };
     setDisplayed(prev => [...prev, userMsg]);
+    // 命中危机信号：立刻展示求助资源（不等 LLM 回复，这条必须到）
+    if (isCrisis) {
+      const resourceMsg: ChatMsg = {
+        id: `crisis-${Date.now()}`,
+        from: "system",
+        type: "system",
+        text: CRISIS_RESOURCES_MESSAGE,
+        delay: 0,
+        typing: 0,
+      };
+      setDisplayed(prev => [...prev, resourceMsg]);
+    }
     scrollBottom();
 
     // 显示"对方正在输入"
@@ -260,6 +276,7 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
         userProfile,
         chatSummary: existingSummary,
         mood: newMood,
+        crisis: isCrisis,
       });
 
       if (data && data.replies?.length) {

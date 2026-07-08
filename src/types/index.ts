@@ -168,6 +168,8 @@ export interface ChatApiRequest {
   chatSummary?: { summary: string; keyTopics: string[]; userAttitude: string; myStatements?: string[] } | null;
   mood?: { current: string; intensity: number } | null;
   layeredMemory?: LayeredMemoryPayload | null;
+  /** 用户消息命中危机信号，注入危机干预指令 */
+  crisis?: boolean;
 }
 
 export interface ChatApiResponse {

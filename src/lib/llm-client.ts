@@ -17,6 +17,7 @@ export async function callChatApi(params: {
   userProfile?: UserProfile | null;
   chatSummary?: ChatSummary | null;
   mood?: MoodState | null;
+  crisis?: boolean;
 }): Promise<ChatApiResponse | null> {
   const body: ChatApiRequest = {
     characterId: params.characterId,
@@ -37,6 +38,7 @@ export async function callChatApi(params: {
       : null,
     // 分层记忆：事实库 + 最近情节 + 里程碑（裁剪后注入，控制 token）
     layeredMemory: toPromptPayload(loadLayeredMemory(params.characterId)),
+    crisis: params.crisis || false,
   };
 
   try {

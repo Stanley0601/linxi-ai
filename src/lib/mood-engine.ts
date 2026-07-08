@@ -46,9 +46,21 @@ export function updateMood(state: MoodState, userText: string, turnCount: number
   let nextIntensity = state.intensity;
 
   // 正面信号 → 心情变好
-  const positiveSignals = ["哈哈", "笑", "开心", "加油", "厉害", "可以的", "支持你", "棒", "不错", "牛", "6", "nice", "赞", "相信你", "没事"];
-  const negativeSignals = ["算了", "别", "不行", "放弃", "后悔", "危险", "风险", "怎么办", "完了", "难", "累"];
+  // 注意避免过短的子串误判（单字"6"会命中"下午6点"、"别"会命中"特别"、"累"会命中用户自己的倾诉）
+  const positiveSignals = ["哈哈", "笑", "开心", "加油", "厉害", "可以的", "支持你", "棒", "不错", "牛", "66", "nice", "赞", "相信你", "没事"];
+  const negativeSignals = ["算了", "别去", "不行", "放弃", "后悔", "危险", "风险", "怎么办", "完了", "太难"];
   const comfortSignals = ["别担心", "会好的", "没关系", "慢慢来", "理解", "辛苦", "抱抱", "心疼"];
+
+  // 用户在倾诉自己的低落（"我好累"）≠ 在否定角色——此时角色应转入关切，而不是自己emo
+  const userDistress = /我[^，。！？!?\s]{0,6}(累|难受|烦死|难过|想哭|emo|不开心)/.test(userText) || /(好|很|太)(累|难受|难过)/.test(userText);
+  if (userDistress) {
+    // 朋友向你倾诉时，你会收起自己的情绪认真听
+    if (state.current === "excited") nextMood = "happy";
+    else if (state.current === "down" || state.current === "anxious") nextMood = "calm";
+    nextIntensity = Math.max(35, nextIntensity - 5);
+    const history = [...state.history, { mood: state.current, turn: turnCount }].slice(-8);
+    return { current: nextMood, intensity: nextIntensity, history };
+  }
 
   const hasPositive = positiveSignals.some(s => t.includes(s));
   const hasNegative = negativeSignals.some(s => t.includes(s));
