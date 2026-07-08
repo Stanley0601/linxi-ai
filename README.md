@@ -3,7 +3,7 @@
 > **Open-source starter template for building AI companions that feel alive.**  
 > Next.js 16 · TypeScript · DeepSeek · Tailwind CSS
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FStanley0601%2Flinxi-ai&env=NEXT_PUBLIC_DEEPSEEK_KEY&envDescription=Your%20DeepSeek%20API%20key%20for%20AI%20conversations&envLink=https%3A%2F%2Fplatform.deepseek.com%2F&project-name=linxi-ai&repository-name=linxi-ai)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FStanley0601%2Flinxi-ai&env=LLM_API_KEY&envDescription=Your%20DeepSeek%20API%20key%20(server-side%20only%2C%20never%20exposed%20to%20the%20browser)&envLink=https%3A%2F%2Fplatform.deepseek.com%2F&project-name=linxi-ai&repository-name=linxi-ai)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
@@ -38,7 +38,7 @@ Use it as a foundation to build:
 
 ### 1-Click Deploy
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FStanley0601%2Flinxi-ai&env=NEXT_PUBLIC_DEEPSEEK_KEY&envDescription=Your%20DeepSeek%20API%20key%20for%20AI%20conversations&envLink=https%3A%2F%2Fplatform.deepseek.com%2F&project-name=linxi-ai&repository-name=linxi-ai)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FStanley0601%2Flinxi-ai&env=LLM_API_KEY&envDescription=Your%20DeepSeek%20API%20key%20(server-side%20only%2C%20never%20exposed%20to%20the%20browser)&envLink=https%3A%2F%2Fplatform.deepseek.com%2F&project-name=linxi-ai&repository-name=linxi-ai)
 
 ### Local Development
 
@@ -56,8 +56,12 @@ Open http://localhost:3000
 Create `.env.local`:
 
 ```bash
-NEXT_PUBLIC_DEEPSEEK_KEY=your_deepseek_api_key  # Get one at https://platform.deepseek.com
+LLM_API_KEY=your_deepseek_api_key                # Get one at https://platform.deepseek.com
+LLM_BASE_URL=https://api.deepseek.com/v1         # Optional: any OpenAI-compatible endpoint
+LLM_MODEL=deepseek-chat                          # Optional: model name
 ```
+
+> ⚠️ **Never use a `NEXT_PUBLIC_` prefix for the API key** — `NEXT_PUBLIC_` variables are bundled into client-side JavaScript and visible to every visitor. `LLM_API_KEY` stays on the server, where all LLM calls happen (`/api/chat`, `/api/summary`).
 
 > Without an API key, the app runs in **mock mode** with pre-written responses — great for UI development.
 
@@ -149,11 +153,11 @@ src/
 
 ### Swap LLM Provider
 
-The project uses DeepSeek by default, but you can swap to **any OpenAI-compatible API** by changing `src/lib/llm-client.ts`:
+The project uses DeepSeek by default, but you can swap to **any OpenAI-compatible API** via environment variables — no code changes needed:
 
-```typescript
-const BASE_URL = "https://api.openai.com/v1";  // or any compatible endpoint
-const MODEL = "gpt-4o-mini";                    // or any model
+```bash
+LLM_BASE_URL=https://api.openai.com/v1   # or any compatible endpoint
+LLM_MODEL=gpt-4o-mini                     # or any model
 ```
 
 Works with: OpenAI, Anthropic (via proxy), Groq, Together AI, Ollama, etc.
@@ -185,21 +189,16 @@ npm i -g vercel
 vercel --prod
 ```
 
-Set `NEXT_PUBLIC_DEEPSEEK_KEY` in your Vercel project settings.
+Set `LLM_API_KEY` in your Vercel project settings (server-side environment variable).
 
 ### Docker
 
 ```bash
 docker build -t linxi-ai .
-docker run -p 3000:3000 -e NEXT_PUBLIC_DEEPSEEK_KEY=sk-xxx linxi-ai
+docker run -p 3000:3000 -e LLM_API_KEY=sk-xxx linxi-ai
 ```
 
-### Static Export (CDN / S3 / CloudBase)
-
-```bash
-npm run build
-# Upload the `out/` directory to any static hosting
-```
+> Static export is not supported: the app relies on server-side API routes (`/api/chat`, `/api/summary`) to keep the LLM API key off the client and to power memory summaries. Deploy to any Node.js-capable host (Vercel, CloudBase server hosting, Docker, etc.).
 
 ---
 

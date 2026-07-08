@@ -122,7 +122,7 @@ export interface ChatApiRequest {
   userMessage: string;
   userProfile?: UserProfile | null;
   realtimeTopics?: InterestTopic[];
-  chatSummary?: { summary: string; keyTopics: string[]; userAttitude: string } | null;
+  chatSummary?: { summary: string; keyTopics: string[]; userAttitude: string; myStatements?: string[] } | null;
   mood?: { current: string; intensity: number } | null;
 }
 

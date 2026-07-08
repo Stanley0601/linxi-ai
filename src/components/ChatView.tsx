@@ -11,7 +11,7 @@ import { MsgBubble, TypingBubble } from "./ChatBubbles";
 import { QQ_BLUE } from "@/lib/constants";
 import { INTEREST_OPTIONS } from "@/lib/interest-context";
 import { getInitialMood, updateMood, type MoodState } from "@/lib/mood-engine";
-import { callLLMDirect } from "@/lib/llm-client";
+import { callChatApi } from "@/lib/llm-client";
 
 /** 从用户自由回复中静默提取兴趣标签 */
 function extractInterestsFromText(text: string): InterestTag[] {
@@ -251,7 +251,7 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
 
     try {
       const existingSummary = loadChatSummary(char.id);
-      const data = await callLLMDirect({
+      const data = await callChatApi({
         characterId: char.id,
         stageId: currentStage?.id || "",
         history,
