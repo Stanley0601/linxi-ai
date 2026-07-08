@@ -50,6 +50,7 @@ async function callLLM(body: ChatApiRequest): Promise<NextResponse> {
     body.userProfile || null,
     body.realtimeTopics,
     body.chatSummary || null,
+    body.layeredMemory || null,
   );
 
   // 注入心情状态

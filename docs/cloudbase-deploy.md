@@ -26,6 +26,7 @@ tcb login
 
 - `scheduled_messages`
 - `chat_summaries`
+- `layered_memories`（分层记忆：事实库/情节/关系里程碑）
 - `push_subscriptions`
 
 给 `scheduled_messages` 加组合索引：`userId + triggered + realTriggerAt`，以及 `triggered + pushed + realTriggerAt`（cron 扫描用）。

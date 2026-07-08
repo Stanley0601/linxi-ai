@@ -7,6 +7,7 @@
 import type { MoodState } from "./mood-engine";
 import type { ChatApiRequest, ChatApiResponse, UserProfile } from "@/types";
 import type { ChatSummary } from "./memory";
+import { loadLayeredMemory, toPromptPayload } from "./layered-memory";
 
 export async function callChatApi(params: {
   characterId: string;
@@ -34,6 +35,8 @@ export async function callChatApi(params: {
     mood: params.mood
       ? { current: params.mood.current, intensity: params.mood.intensity }
       : null,
+    // 分层记忆：事实库 + 最近情节 + 里程碑（裁剪后注入，控制 token）
+    layeredMemory: toPromptPayload(loadLayeredMemory(params.characterId)),
   };
 
   try {

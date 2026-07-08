@@ -1,5 +1,6 @@
-import type { Character, InterestTopic, StoryStage, UserProfile } from "@/types";
+import type { Character, InterestTopic, LayeredMemoryPayload, StoryStage, UserProfile } from "@/types";
 import { buildInterestPromptBlock } from "./interest-context";
+import { buildLayeredMemoryBlock } from "./layered-memory";
 
 interface ChatMemory {
   summary: string;
@@ -17,8 +18,10 @@ export function buildSystemPrompt(
   userProfile?: UserProfile | null,
   realtimeTopics?: InterestTopic[],
   chatSummary?: ChatMemory | null,
+  layeredMemory?: LayeredMemoryPayload | null,
 ): string {
   const interestBlock = buildInterestPromptBlock(userProfile, realtimeTopics);
+  const layeredBlock = layeredMemory ? `${buildLayeredMemoryBlock(layeredMemory)}\n\n` : "";
   const myStatementsBlock = chatSummary?.myStatements?.length
     ? `- 你自己上次说过的重要内容：${chatSummary.myStatements.join("；")}`
     : "";
@@ -45,7 +48,7 @@ ${character.speakingStyle}
 ${stage.description}
 你现在的情绪：${stage.emotion}
 
-${memoryBlock}${interestBlock ? `${interestBlock}\n\n` : ""}## 对话规则
+${layeredBlock}${memoryBlock}${interestBlock ? `${interestBlock}\n\n` : ""}## 对话规则
 1. 你是一个真实存在的人，正在通过QQ跟一个新认识的朋友聊天。
 2. 每次只回复1-2条短消息（每条8-25字）。用 "|" 分隔多条。大部分时候只回1条就够了。
 3. 像真人在手机上打字——口语化、随意、偶尔打错字也行。

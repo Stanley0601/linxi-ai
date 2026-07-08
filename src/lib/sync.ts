@@ -8,6 +8,7 @@
 import type { ScheduledMessage } from "./time-engine";
 import type { ChatSummary } from "./memory";
 import type { DueScheduledMessage } from "./proactive-sync";
+import type { LayeredMemory } from "@/types";
 import { getUserId } from "./user-id";
 
 // ============================================
@@ -83,6 +84,35 @@ export async function saveSummaryRemote(summary: ChatSummary): Promise<void> {
     });
   } catch {
     // ignore
+  }
+}
+
+/** 分层记忆同步一份到服务端 */
+export async function saveLayeredMemoryRemote(memory: LayeredMemory): Promise<void> {
+  const userId = getUserId();
+  if (!userId) return;
+  try {
+    await fetch("/api/memory/layered", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, memory }),
+    });
+  } catch {
+    // ignore
+  }
+}
+
+/** 拉取服务端全部分层记忆（新设备/清缓存后恢复） */
+export async function fetchRemoteLayeredMemories(): Promise<LayeredMemory[]> {
+  const userId = getUserId();
+  if (!userId) return [];
+  try {
+    const res = await fetch(`/api/memory/layered?userId=${encodeURIComponent(userId)}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.memories) ? data.memories : [];
+  } catch {
+    return [];
   }
 }
 

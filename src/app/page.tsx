@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { CharacterStatus, MomentComment, MomentPost, ProactiveInboxState, RelationshipState, TabType, UserProfile } from "@/types";
 import { characters, getCharacter } from "@/lib/characters";
-import { getStagesForCharacter } from "@/lib/story-stages";
+import { getStagesForCharacter, getEndingsForCharacter } from "@/lib/story-stages";
 import { momentPosts } from "@/lib/moments-data";
 import { getTimeline } from "@/lib/timeline-data";
 import { getRandomStatus, getDailyLifeForStages } from "@/lib/daily-life";
@@ -29,7 +29,12 @@ import { mergeDueIntoInbox } from "@/lib/proactive-sync";
 import {
   registerScheduledMessages, fetchDueScheduled, consumeScheduled,
   fetchRemoteSummaries, enablePushNotifications,
+  saveLayeredMemoryRemote, fetchRemoteLayeredMemories,
 } from "@/lib/sync";
+import {
+  recordMilestone, milestonesToTimelineEvents,
+  loadLayeredMemory, saveLayeredMemory,
+} from "@/lib/layered-memory";
 import {
   Landing,
   StorySelect,
@@ -274,13 +279,21 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [phase]);
 
-  // 启动时从服务端恢复记忆摘要（新设备/清缓存场景；未配置后端时空操作）
+  // 启动时从服务端恢复记忆（新设备/清缓存场景；未配置后端时空操作）
   useEffect(() => {
     fetchRemoteSummaries().then(summaries => {
       summaries.forEach(s => {
         const local = loadChatSummary(s.characterId);
         if (!local || (s.lastUpdated || 0) > (local.lastUpdated || 0)) {
           saveChatSummary(s.characterId, s);
+        }
+      });
+    });
+    fetchRemoteLayeredMemories().then(memories => {
+      memories.forEach(m => {
+        const local = loadLayeredMemory(m.characterId);
+        if ((m.updatedAt || 0) > (local.updatedAt || 0)) {
+          saveLayeredMemory(m);
         }
       });
     });
@@ -500,6 +513,20 @@ export default function Home() {
       ...prev,
       [charId]: { stageProgress: 4, hasFinished: true, endingId: eid },
     }));
+    // 记录结局里程碑（进"你们的故事"时间线）
+    const { endings } = getEndingsForCharacter(charId);
+    const ending = endings.get(eid);
+    if (ending) {
+      const mem = recordMilestone(charId, {
+        id: `ms-ending-${charId}`,
+        at: Date.now(),
+        type: "ending",
+        title: ending.title,
+        description: "这次聊天，改变了TA的选择",
+        emoji: ending.emoji || "🌟",
+      });
+      saveLayeredMemoryRemote(mem);
+    }
     setEndingId(eid);
     setPhase("ending");
   }, []);
@@ -667,6 +694,22 @@ export default function Home() {
                     const current = prev[activeChar.id];
                     if (!current || current.hasFinished || current.stageProgress >= 3) return prev;
                     const newProgress = Math.max(current.stageProgress, Math.min(3, saved.stageIndex + 1));
+                    // 记录关系推进里程碑（每阶段一次，addMilestone 按标题幂等）
+                    if (newProgress > current.stageProgress) {
+                      const stageTitles = ["", "开始熟络起来", "TA向你敞开了心扉", "走到了故事的关键处"];
+                      const title = stageTitles[newProgress];
+                      if (title) {
+                        const mem = recordMilestone(activeChar.id, {
+                          id: `ms-stage-${activeChar.id}-${newProgress}`,
+                          at: Date.now(),
+                          type: "stage_advance",
+                          title,
+                          description: "你们的关系更近了一步",
+                          emoji: "🌱",
+                        });
+                        saveLayeredMemoryRemote(mem);
+                      }
+                    }
                     // 调度下一阶段的定时主动消息
                     const stages = getStagesForCharacter(activeChar.id);
                     const nextStageId = stages[newProgress]?.id;
@@ -728,6 +771,7 @@ export default function Home() {
             key={`timeline-${timelineChar.id}`}
             char={timelineChar}
             events={getTimeline(timelineChar.id, endingId)}
+            storyEvents={milestonesToTimelineEvents(loadLayeredMemory(timelineChar.id).milestones)}
             onBack={() => { setViewTimelineId(null); setPhase("profile"); setViewProfileId(timelineChar.id); }}
           />
         )}
