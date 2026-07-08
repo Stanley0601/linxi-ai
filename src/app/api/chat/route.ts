@@ -6,6 +6,7 @@ import { getStagesForCharacter } from "@/lib/story-stages";
 import { buildMoodPromptBlock } from "@/lib/mood-engine";
 import { parseLLMContent } from "@/lib/llm-parse";
 import { buildCrisisPromptBlock } from "@/lib/safety";
+import { getRealtimeTopics } from "@/lib/server/realtime";
 
 /**
  * POST /api/chat
@@ -45,11 +46,22 @@ async function callLLM(body: ChatApiRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid character or stage" }, { status: 400 });
   }
 
+  // 实时话题（信息型陪伴）：服务端取真实资讯（RSS/比分），
+  // 取不到时 buildInterestPromptBlock 自动回落 mock 话题池
+  let liveTopics = body.realtimeTopics;
+  if ((!liveTopics || liveTopics.length === 0) && body.userProfile?.interestTags?.length) {
+    try {
+      liveTopics = await getRealtimeTopics(body.userProfile.interestTags, 2);
+    } catch {
+      liveTopics = undefined;
+    }
+  }
+
   let systemPrompt = buildSystemPrompt(
     character,
     stage,
     body.userProfile || null,
-    body.realtimeTopics,
+    liveTopics,
     body.chatSummary || null,
     body.layeredMemory || null,
   );
