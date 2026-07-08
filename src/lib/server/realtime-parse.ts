@@ -65,6 +65,28 @@ const COMPETITION_CN: Record<string, string> = {
   "European Championship": "欧洲杯",
 };
 
+/** 常见球队/国家队中文名（没有映射的保留原名） */
+const TEAM_CN: Record<string, string> = {
+  // 国家队
+  England: "英格兰", France: "法国", Germany: "德国", Spain: "西班牙",
+  Brazil: "巴西", Argentina: "阿根廷", Portugal: "葡萄牙", Netherlands: "荷兰",
+  Italy: "意大利", Belgium: "比利时", Croatia: "克罗地亚", Uruguay: "乌拉圭",
+  Mexico: "墨西哥", Japan: "日本", Korea: "韩国", "Korea Republic": "韩国",
+  Morocco: "摩洛哥", Senegal: "塞内加尔", Switzerland: "瑞士", Denmark: "丹麦",
+  Poland: "波兰", USA: "美国", Australia: "澳大利亚", Ghana: "加纳",
+  // 俱乐部
+  "Man City": "曼城", "Man United": "曼联", Liverpool: "利物浦", Arsenal: "阿森纳",
+  Chelsea: "切尔西", Spurs: "热刺", Newcastle: "纽卡", "Aston Villa": "维拉",
+  Barça: "巴萨", Barcelona: "巴萨", "Real Madrid": "皇马", "Atleti": "马竞",
+  "Atlético Madrid": "马竞", "Bayern München": "拜仁", Bayern: "拜仁",
+  Dortmund: "多特", Leverkusen: "勒沃库森", Juventus: "尤文", Milan: "AC米兰",
+  Inter: "国米", Napoli: "那不勒斯", Roma: "罗马", PSG: "巴黎",
+};
+
+function teamCn(name: string): string {
+  return TEAM_CN[name] || name;
+}
+
 /** 已完场的比赛 → 兴趣话题（真实比分） */
 export function footballMatchesToTopics(matches: FootballMatch[]): InterestTopic[] {
   const finished = matches.filter(
@@ -73,8 +95,8 @@ export function footballMatchesToTopics(matches: FootballMatch[]): InterestTopic
 
   return finished.slice(0, 3).map((m, i) => {
     const comp = COMPETITION_CN[m.competition?.name || ""] || m.competition?.name || "足球";
-    const home = m.homeTeam?.shortName || m.homeTeam?.name || "主队";
-    const away = m.awayTeam?.shortName || m.awayTeam?.name || "客队";
+    const home = teamCn(m.homeTeam?.shortName || m.homeTeam?.name || "主队");
+    const away = teamCn(m.awayTeam?.shortName || m.awayTeam?.name || "客队");
     const h = m.score!.fullTime!.home;
     const a = m.score!.fullTime!.away;
     const line = `${comp}：${home} ${h}-${a} ${away}`;

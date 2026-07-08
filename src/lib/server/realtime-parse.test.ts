@@ -52,7 +52,7 @@ describe("footballMatchesToTopics", () => {
       },
     ]);
     expect(topics).toHaveLength(1);
-    expect(topics[0].title).toContain("英超：Man City 3-1 Spurs");
+    expect(topics[0].title).toContain("英超：曼城 3-1 热刺");
     expect(topics[0].mention).toContain("3比1");
   });
 

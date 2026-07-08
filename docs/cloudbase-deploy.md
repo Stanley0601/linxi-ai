@@ -49,6 +49,7 @@ openssl rand -hex 32               # 得到 CRON_SECRET
 | `WEB_PUSH_VAPID_PUBLIC_KEY` / `WEB_PUSH_VAPID_PRIVATE_KEY` | 第 2 步生成 |
 | `WEB_PUSH_CONTACT` | `mailto:你的邮箱` |
 | `CRON_SECRET` | 第 2 步生成 |
+| `FOOTBALL_DATA_KEY` | football-data.org 的 token（足球真实比分；不配则回落内置话题池） |
 | `FOOTBALL_DATA_KEY` | 可选：足球真实比分，[football-data.org 免费注册](https://www.football-data.org/client/register)，token 发邮箱 |
 
 部署完成后记下服务地址（形如 `https://linxi-app-xxx.ap-shanghai.run.tcloudbase.com`）。
