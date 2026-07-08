@@ -22,8 +22,14 @@ import {
   loadRelationshipState, saveRelationshipState,
   clearAllData,
   saveScheduledMessages, loadScheduledMessages, markMessageTriggered,
+  loadChatSummary, saveChatSummary,
 } from "@/lib/memory";
 import { getTriggeredMessages, getStoryScheduledMessages, formatRealWait, type ScheduledMessage } from "@/lib/time-engine";
+import { mergeDueIntoInbox } from "@/lib/proactive-sync";
+import {
+  registerScheduledMessages, fetchDueScheduled, consumeScheduled,
+  fetchRemoteSummaries, enablePushNotifications,
+} from "@/lib/sync";
 import {
   Landing,
   StorySelect,
@@ -243,42 +249,42 @@ export default function Home() {
   useEffect(() => {
     if (phase === "landing" || phase === "select") return;
 
-    const checkScheduled = () => {
+    const checkScheduled = async () => {
+      // 本地调度（页面开着时的即时触发）
       const all = loadScheduledMessages();
-      const triggered = getTriggeredMessages(all);
-      if (triggered.length === 0) return;
+      const localDue = getTriggeredMessages(all);
+      if (localDue.length > 0) {
+        setProactiveInbox(prev => mergeDueIntoInbox(prev, localDue).inbox);
+        localDue.forEach(msg => markMessageTriggered(msg.id));
+      }
 
-      triggered.forEach(msg => {
-        setProactiveInbox(prev => ({
-          ...prev,
-          [msg.characterId]: {
-            id: msg.id,
-            characterId: msg.characterId,
-            stageId: "",
-            triggerCondition: "idle" as const,
-            messages: msg.messages.map((m, i) => ({
-              id: `sched-msg-${msg.id}-${i}`,
-              from: "char" as const,
-              type: "text" as const,
-              text: m.text,
-              delay: 600 + i * 400,
-              typing: 500,
-            })),
-            unread: true,
-            preview: msg.messages[0]?.text || "",
-            lastMessageTime: "刚刚",
-            topicTag: undefined,
-            createdAt: Date.now(),
-          },
-        }));
-        markMessageTriggered(msg.id);
-      });
+      // 服务端调度（关页/换设备期间到期的消息，未配置后端时静默返回空）
+      const remoteDue = await fetchDueScheduled();
+      if (remoteDue.length > 0) {
+        setProactiveInbox(prev => mergeDueIntoInbox(prev, remoteDue).inbox);
+        const remoteIds = remoteDue.map(m => m._id || m.id).filter((x): x is string => Boolean(x));
+        // 本地同 id 的调度也标记掉，避免重复入箱
+        remoteIds.forEach(id => markMessageTriggered(id));
+        consumeScheduled(remoteIds);
+      }
     };
 
     checkScheduled();
     const interval = setInterval(checkScheduled, 30000); // 每30秒检查
     return () => clearInterval(interval);
   }, [phase]);
+
+  // 启动时从服务端恢复记忆摘要（新设备/清缓存场景；未配置后端时空操作）
+  useEffect(() => {
+    fetchRemoteSummaries().then(summaries => {
+      summaries.forEach(s => {
+        const local = loadChatSummary(s.characterId);
+        if (!local || (s.lastUpdated || 0) > (local.lastUpdated || 0)) {
+          saveChatSummary(s.characterId, s);
+        }
+      });
+    });
+  }, []);
 
   useEffect(() => {
     if (!selectedStoryId || phase === "landing" || phase === "select") return;
@@ -511,6 +517,7 @@ export default function Home() {
         const newScheduled = getStoryScheduledMessages(charId, firstStageId);
         if (newScheduled.length > 0) {
           saveScheduledMessages([...existing, ...newScheduled]);
+          registerScheduledMessages(newScheduled); // 同步到服务端用于关页推送
         }
       }
     }
@@ -668,6 +675,7 @@ export default function Home() {
                       if (newScheduled.length > 0) {
                         const existing = loadScheduledMessages();
                         saveScheduledMessages([...existing, ...newScheduled]);
+                        registerScheduledMessages(newScheduled); // 同步到服务端用于关页推送
                       }
                     }
                     return {
@@ -679,6 +687,8 @@ export default function Home() {
                     };
                   });
                 }
+                // 用户刚结束一段聊天，是请求通知权限的最佳时机（有上下文、有意愿）
+                enablePushNotifications();
               }
               setPhase("app");
             }}

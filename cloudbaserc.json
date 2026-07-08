@@ -1,4 +1,24 @@
 {
   "envId": "linxi-d2gcj01lm1b6d05c8",
-  "region": "ap-shanghai"
+  "region": "ap-shanghai",
+  "functionRoot": "./cloudfunctions",
+  "functions": [
+    {
+      "name": "proactive-tick",
+      "timeout": 20,
+      "runtime": "Nodejs18.15",
+      "memorySize": 128,
+      "envVariables": {
+        "APP_BASE_URL": "https://REPLACE_WITH_YOUR_CLOUDRUN_URL",
+        "CRON_SECRET": "REPLACE_WITH_YOUR_CRON_SECRET"
+      },
+      "triggers": [
+        {
+          "name": "every-5-min",
+          "type": "timer",
+          "config": "0 */5 * * * * *"
+        }
+      ]
+    }
+  ]
 }

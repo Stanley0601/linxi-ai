@@ -6,6 +6,7 @@ import type { Character, ChatMsg, InterestTag, ProactiveInboxEntry, Relationship
 import { getChatInterestSummary, initChatState, handleUserMessage, type ChatState } from "@/lib/chat-engine";
 import { saveChatHistory, loadChatHistory, saveChatSummary, loadChatSummary } from "@/lib/memory";
 import { generateChatSummary } from "@/lib/chat-summary";
+import { saveSummaryRemote } from "@/lib/sync";
 import { getWeatherCareLine } from "@/lib/weather-context";
 import { MsgBubble, TypingBubble } from "./ChatBubbles";
 import { QQ_BLUE } from "@/lib/constants";
@@ -302,7 +303,10 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
           // 异步生成对话摘要（不阻塞返回）
           const existingSummary = loadChatSummary(char.id);
           generateChatSummary(char.id, char.name, displayed, existingSummary).then(summary => {
-            if (summary) saveChatSummary(char.id, summary);
+            if (summary) {
+              saveChatSummary(char.id, summary);
+              saveSummaryRemote(summary); // 同步到服务端（跨设备记忆）
+            }
           });
           onBack(state.relationship);
         }} className="mr-3 flex-shrink-0">
