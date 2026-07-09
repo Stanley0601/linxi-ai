@@ -11,6 +11,16 @@ export const INTEREST_OPTIONS: InterestTag[] = [
   "音乐",
   "电影",
   "美食",
+  "旅行",
+  "摄影",
+  "读书",
+  "健身",
+  "穿搭",
+  "宠物",
+  "心理学",
+  "创业",
+  "考研",
+  "留学",
 ];
 
 const TOPIC_POOL: Record<InterestTag, InterestTopic[]> = {
@@ -194,6 +204,36 @@ const TOPIC_POOL: Record<InterestTag, InterestTopic[]> = {
       question: "你会自己做点简单的东西吃吗",
     },
   ],
+  旅行: [
+    { id: "travel-1", tag: "旅行", title: "最近很多人在分享小众城市的旅行攻略", brief: "可以聊想去的地方或出行中的小插曲。", mention: "看到别人拍的照片突然好想出去走走", question: "你最近有想去的地方吗" },
+  ],
+  摄影: [
+    { id: "photo-1", tag: "摄影", title: "手机摄影和修图调色是很多人日常记录生活的方式", brief: "聊拍照视角、喜欢的色调和生活记录习惯。", mention: "今天傍晚的光线真的绝了，随手拍了一张", question: "你平时也会拍照记录生活吗" },
+  ],
+  读书: [
+    { id: "book-1", tag: "读书", title: "有些书看完之后总想找个人聊聊感受", brief: "适合分享读后感和触动的片段。", mention: "最近在看的这本书有个情节让我想了很久", question: "你最近有在看什么书吗" },
+  ],
+  健身: [
+    { id: "fitness-1", tag: "健身", title: "运动打卡和身体管理是很多年轻人关注的日常", brief: "聊运动习惯、身体变化和坚持的感受。", mention: "今天跑了五公里，结束之后整个人都舒服了", question: "你平时会运动吗" },
+  ],
+  穿搭: [
+    { id: "fashion-1", tag: "穿搭", title: "换季穿搭和个人风格探索是很日常的话题", brief: "可以聊喜欢的风格和最近入的好物。", mention: "最近入了一件外套，穿上之后心情都好了", question: "你穿衣服一般偏什么风格" },
+  ],
+  宠物: [
+    { id: "pet-1", tag: "宠物", title: "养宠人的日常总能引发很多共鸣和分享欲", brief: "聊宠物的日常趣事和陪伴感。", mention: "我家猫今天又把东西推下桌了", question: "你养过宠物吗" },
+  ],
+  心理学: [
+    { id: "psych-1", tag: "心理学", title: "心理学相关的内容总能引发深度对话和自我探索", brief: "可以聊性格测试、认知偏误或情绪管理。", mention: "最近在看一些关于依恋理论的东西，觉得挺有意思的", question: "你对心理学感兴趣吗" },
+  ],
+  创业: [
+    { id: "startup-1", tag: "创业", title: "创业相关的经历和想法在年轻人中越来越普遍", brief: "聊想法验证、团队和日常挑战。", mention: "最近一直在想一个idea但不确定值不值得做", question: "你有过想创业的念头吗" },
+  ],
+  考研: [
+    { id: "kaoyan-1", tag: "考研", title: "考研备考和选择是很多大学生正在经历的事", brief: "聊备考压力、选择和坚持的日常。", mention: "今天图书馆坐了一整天，感觉脑子要冒烟了", question: "你是在准备考研吗" },
+  ],
+  留学: [
+    { id: "abroad-1", tag: "留学", title: "留学申请和海外生活是很多人正在或即将面对的选择", brief: "聊准备过程、文化差异和独自在外的感受。", mention: "在写PS的时候总觉得自己没什么特别值得写的", question: "你有出国的打算吗" },
+  ],
 };
 
 export function getMockRealtimeTopics(tags: InterestTag[], limit = 3): InterestTopic[] {
@@ -375,6 +415,16 @@ function buildMomentEmoji(tag: InterestTag): string {
     音乐: "🎧",
     电影: "🎬",
     美食: "🍜",
+    旅行: "✈️",
+    摄影: "📷",
+    读书: "📖",
+    健身: "💪",
+    穿搭: "👗",
+    宠物: "🐱",
+    心理学: "🧠",
+    创业: "🚀",
+    考研: "📚",
+    留学: "🌍",
   };
   return map[tag];
 }

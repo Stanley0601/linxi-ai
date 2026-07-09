@@ -1,150 +1,325 @@
 "use client";
 
-import { motion } from "framer-motion";
-import type { Character } from "@/types";
+import { useState, useCallback } from "react";
+import { motion, useMotionValue, useTransform, AnimatePresence, type PanInfo } from "framer-motion";
+import Image from "next/image";
 import { characters } from "@/lib/characters";
-import { QQ_BLUE } from "@/lib/constants";
 
-interface StoryCard {
-  character: Character;
-  coverEmoji: string;
+// ============================================
+// 卡牌数据
+// ============================================
+
+interface CardData {
+  character: typeof characters[0];
+  cardImage: string;
   genre: string;
   tagline: string;
   synopsis: string;
   tags: string[];
-  difficulty: string;
-  duration: string;
+  accentColor: string;
 }
 
-const storyCards: StoryCard[] = [
+const cardDataList: CardData[] = [
   {
-    character: characters[0], // 林小宇
-    coverEmoji: "🎓",
+    character: characters[0],
+    cardImage: "/avatars/xiaoyu-card.png",
     genre: "成长 · 选择",
     tagline: "保研还是创业，人生的第一个岔路口",
-    synopsis: "林小宇拿到了保研名额，但偷偷面试了一家AI创业公司。父母的期待和内心的热爱在拉扯。她会在深夜找你倾诉，在图书馆给你发自习照，甚至把面试经历一五一十地告诉你。你的每一句话，都在悄悄影响她的选择。",
-    tags: ["校园", "职业选择", "家庭期望"],
-    difficulty: "入门",
-    duration: "约5分钟",
+    synopsis: "她拿到了保研名额，却偷偷面了AI创业公司。深夜找你倾诉时，你是唯一愿意听她说话的人。",
+    tags: ["校园", "职业选择", "深夜倾诉"],
+    accentColor: "#f472b6",
   },
   {
-    character: characters[1], // 陈浩然
-    coverEmoji: "📈",
+    character: characters[1],
+    cardImage: "/avatars/haoran-card.png",
     genre: "野心 · 代价",
     tagline: "量化交易开始盈利了，但代价是什么",
-    synopsis: "陈浩然和朋友做的量化交易项目赚钱了。导师催论文、合伙人催全职、女朋友觉得他变了。他会在凌晨给你发策略收益截图，在分手后找你聊到天亮。成功的路上，他在丢掉什么？",
-    tags: ["金融", "创业", "感情"],
-    difficulty: "进阶",
-    duration: "约5分钟",
+    synopsis: "凌晨给你发策略收益截图，分手后找你聊到天亮。成功的路上，他在丢掉什么？",
+    tags: ["金融", "创业", "深夜对话"],
+    accentColor: "#818cf8",
   },
   {
-    character: characters[2], // 苏默默
-    coverEmoji: "🎨",
+    character: characters[2],
+    cardImage: "/avatars/momo-card.png",
     genre: "迷茫 · 觉醒",
     tagline: "学了三年设计，却在代码里找到了自己",
-    synopsis: "苏默默在美院学设计，但开始怀疑自己的热爱。她偷偷学了HTML，做了第一个网页，发现设计和代码的交叉点。她会给你看她的画、分享深夜敲代码的截图，小心翼翼地问你的看法。内向的她，把你当成了最信任的人。",
-    tags: ["艺术", "转型", "自我发现"],
-    difficulty: "入门",
-    duration: "约5分钟",
+    synopsis: "她给你看她的画、分享深夜敲代码的截图，小心翼翼地问你的看法。你是她最信任的人。",
+    tags: ["艺术", "转型", "信任"],
+    accentColor: "#fb923c",
+  },
+  {
+    character: characters[3],
+    cardImage: "/avatars/zhiqiu-card.png",
+    genre: "禁忌 · 自愈",
+    tagline: "能看透别人的心，却读不懂自己的感情",
+    synopsis: "心理咨询师爱上了来访者，这段禁忌让她陷入自我质疑。深夜卸下伪装时，她只想跟你说真话。",
+    tags: ["心理学", "禁忌关系", "治愈"],
+    accentColor: "#a78bfa",
+  },
+  {
+    character: characters[4],
+    cardImage: "/avatars/beichen-card.png",
+    genre: "自由 · 抉择",
+    tagline: "一首歌爆了，但他不确定要的是流量还是表达",
+    synopsis: "退学做音乐的浪子，用不羁掩藏认真。醉后给你发未发表的歌，问你听完什么感觉。",
+    tags: ["音乐", "退学", "真实"],
+    accentColor: "#f87171",
   },
 ];
 
-export default function StorySelect({ onSelect }: { onSelect: (characterId: string) => void }) {
+// ============================================
+// 单张卡牌
+// ============================================
+
+const SWIPE_THRESHOLD = 100;
+
+function CharacterCard({
+  card,
+  onSwipeRight,
+  onSwipeLeft,
+  isTop,
+}: {
+  card: CardData;
+  onSwipeRight: () => void;
+  onSwipeLeft: () => void;
+  isTop: boolean;
+}) {
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-250, 0, 250], [-12, 0, 12]);
+  const cardOpacity = useTransform(x, [-250, -80, 0, 80, 250], [0.6, 1, 1, 1, 0.6]);
+  const likeOpacity = useTransform(x, [0, 60, 120], [0, 0.6, 1]);
+  const nopeOpacity = useTransform(x, [-120, -60, 0], [1, 0.6, 0]);
+
+  const handleDragEnd = useCallback((_: unknown, info: PanInfo) => {
+    if (info.offset.x > SWIPE_THRESHOLD) {
+      onSwipeRight();
+    } else if (info.offset.x < -SWIPE_THRESHOLD) {
+      onSwipeLeft();
+    }
+  }, [onSwipeRight, onSwipeLeft]);
+
   return (
-    <motion.div className="min-h-full px-5 py-10 safe-area-top"
-      style={{ background: "linear-gradient(180deg, #0a0a1a 0%, #111827 100%)" }}
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+    <motion.div
+      className="absolute inset-4 cursor-grab active:cursor-grabbing"
+      style={{ x, rotate, opacity: cardOpacity, zIndex: isTop ? 10 : 1 }}
+      drag={isTop ? "x" : false}
+      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+      dragElastic={0.8}
+      onDragEnd={handleDragEnd}
+      initial={isTop ? { scale: 0.95, y: 20, opacity: 0 } : { scale: 0.92, y: 12 }}
+      animate={{ scale: isTop ? 1 : 0.92, y: isTop ? 0 : 12, opacity: 1 }}
+      exit={{ x: -300, opacity: 0, rotate: -12, transition: { duration: 0.4, ease: "easeIn" } }}
+      transition={isTop ? { type: "spring", stiffness: 300, damping: 25 } : { duration: 0.3 }}
+    >
+      {/* 卡牌容器 - 有明确边框和圆角 */}
+      <div
+        className="w-full h-full rounded-[28px] overflow-hidden flex flex-col"
+        style={{
+          background: "linear-gradient(165deg, #1c1c2e 0%, #12121f 100%)",
+          border: `2px solid ${card.accentColor}30`,
+          boxShadow: `0 20px 60px -12px ${card.accentColor}20, 0 8px 32px rgba(0,0,0,0.5)`,
+        }}
+      >
+        {/* 上半部分 - 角色图片（非全屏） */}
+        <div className="relative h-[70%] overflow-hidden">
+          <Image
+            src={card.cardImage}
+            alt={card.character.name}
+            fill
+            className="object-cover object-top"
+            priority={isTop}
+          />
+          {/* 底部渐变过渡 */}
+          <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-[#12121f] to-transparent" />
 
-      <motion.div className="max-w-md mx-auto"
-        initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}>
+          {/* 右滑指示器 */}
+          <motion.div
+            className="absolute top-4 right-4 px-3 py-1.5 rounded-lg border-2 border-green-400 rotate-6"
+            style={{ opacity: likeOpacity }}
+          >
+            <span className="text-green-400 font-bold text-sm">聊聊 💬</span>
+          </motion.div>
 
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white mb-2">选择你的灵犀伙伴</h1>
-          <p className="text-[15px] text-white/50 leading-relaxed">TA 们是真实存在的人，正在等一个可以聊天的朋友</p>
-        </div>
+          {/* 左滑指示器 */}
+          <motion.div
+            className="absolute top-4 left-4 px-3 py-1.5 rounded-lg border-2 border-red-400 -rotate-6"
+            style={{ opacity: nopeOpacity }}
+          >
+            <span className="text-red-400 font-bold text-sm">跳过 ✕</span>
+          </motion.div>
 
-        {/* Story Cards */}
-        <div className="space-y-5">
-          {storyCards.map((card, i) => (
-            <motion.div
-              key={card.character.id}
-              className="relative overflow-hidden rounded-2xl cursor-pointer active:scale-[0.98] transition-transform"
-              style={{
-                background: "rgba(255,255,255,0.06)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(255,255,255,0.1)",
-              }}
-              initial={{ y: 30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2 + i * 0.12 }}
-              onClick={() => onSelect(card.character.id)}
-              whileTap={{ scale: 0.97 }}
+          {/* 角色类型标签 */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2">
+            <span
+              className="text-xs font-medium px-3 py-1 rounded-full backdrop-blur-md text-white/90"
+              style={{ background: `${card.accentColor}60` }}
             >
-              {/* Card content */}
-              <div className="p-6">
-                {/* Top row: avatar + genre */}
-                <div className="flex items-center gap-3.5 mb-4">
-                  <div className="w-[54px] h-[54px] rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-white/20">
-                    <img src={card.character.avatarImg} alt={card.character.name}
-                      width={54} height={54} className="object-cover w-full h-full" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[17px] font-semibold text-white">{card.character.name}</span>
-                      <span className="text-[14px] px-2.5 py-0.5 rounded-full text-white/70"
-                        style={{ background: "rgba(255,255,255,0.1)" }}>
-                        {card.character.age}岁 · {card.character.school}
-                      </span>
-                    </div>
-                    <p className="text-[13px] text-white/40">{card.genre}</p>
-                  </div>
-                  <span className="text-[32px] flex-shrink-0">{card.coverEmoji}</span>
-                </div>
-
-                {/* Tagline */}
-                <h3 className="text-[16px] font-medium text-white/90 mb-2.5 leading-snug">{card.tagline}</h3>
-
-                {/* Synopsis */}
-                <p className="text-[14px] text-white/50 leading-[1.7] mb-4 line-clamp-3">
-                  {card.synopsis}
-                </p>
-
-                {/* Tags */}
-                <div className="flex items-center gap-2.5 flex-wrap mb-4">
-                  {card.tags.map(tag => (
-                    <span key={tag} className="text-[14px] px-2.5 py-1 rounded-full"
-                      style={{ background: `${QQ_BLUE}20`, color: QQ_BLUE }}>
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Bottom meta */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-[13px] text-white/30">⏱ {card.duration}</span>
-                    <span className="text-[13px] text-white/30">📊 {card.difficulty}</span>
-                  </div>
-                  <motion.div
-                    className="text-[13px] font-medium px-4 py-1.5 rounded-full"
-                    style={{ background: QQ_BLUE, color: "white" }}
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    进入故事
-                  </motion.div>
-                </div>
-              </div>
-            </motion.div>
-          ))}
+              {card.genre}
+            </span>
+          </div>
         </div>
 
-        {/* Footer */}
-        <motion.p className="text-center text-[14px] text-white/20 mt-6"
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}>
-          每个剧本都有多个结局 · 你的选择决定TA的人生
+        {/* 下半部分 - 角色信息 */}
+        <div className="flex-1 px-5 py-4 flex flex-col justify-between">
+          {/* 名字 + 基本信息 */}
+          <div>
+            <div className="flex items-baseline gap-2 mb-1">
+              <h2 className="text-2xl font-bold text-white">{card.character.name}</h2>
+              <span className="text-base text-white/50">{card.character.age}岁</span>
+            </div>
+            <p className="text-xs text-white/40 mb-3">
+              {card.character.school} · {card.character.major}
+            </p>
+
+            {/* tagline */}
+            <p className="text-[15px] text-white/85 font-medium leading-relaxed mb-2">
+              「{card.tagline}」
+            </p>
+
+            {/* 简介 */}
+            <p className="text-xs text-white/50 leading-relaxed line-clamp-2">
+              {card.synopsis}
+            </p>
+          </div>
+
+          {/* 底部标签 */}
+          <div className="flex gap-1.5 flex-wrap mt-3">
+            {card.tags.map((tag) => (
+              <span
+                key={tag}
+                className="text-[11px] px-2.5 py-0.5 rounded-full text-white/60"
+                style={{ background: `${card.accentColor}15`, border: `1px solid ${card.accentColor}30` }}
+              >
+                #{tag}
+              </span>
+            ))}
+            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-white/5 text-white/30 ml-auto">
+              {card.character.signature}
+            </span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ============================================
+// 主组件
+// ============================================
+
+export default function StorySelect({ onSelect }: { onSelect: (characterId: string) => void }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const handleSwipeRight = useCallback(() => {
+    const card = cardDataList[currentIndex];
+    if (card) {
+      onSelect(card.character.id);
+    }
+  }, [currentIndex, onSelect]);
+
+  const handleSwipeLeft = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % cardDataList.length);
+  }, []);
+
+  const currentCard = cardDataList[currentIndex];
+  const nextIndex = (currentIndex + 1) % cardDataList.length;
+  const nextCard = cardDataList[nextIndex];
+
+  return (
+    <motion.div
+      className="min-h-screen flex flex-col safe-area-top"
+      style={{ background: "linear-gradient(180deg, #08081a 0%, #0f0f24 50%, #141428 100%)" }}
+      exit={{ opacity: 0 }}
+    >
+      {/* Header */}
+      <div className="text-center pt-8 pb-2 px-6">
+        <motion.h1
+          className="text-xl font-bold text-white/90 mb-0.5"
+          initial={{ y: -15, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+        >
+          选择你的聊天对象
+        </motion.h1>
+        <motion.p
+          className="text-xs text-white/35"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          ← 滑动切换 · 右滑或点击💬开始 →
         </motion.p>
-      </motion.div>
+      </div>
+
+      {/* 卡牌区域 */}
+      <div className="flex-1 relative mx-4 mb-4 max-w-[380px] self-center w-full" style={{ minHeight: "520px" }}>
+        {/* 背景卡（始终渲染，不参与 AnimatePresence） */}
+        <CharacterCard
+          key={`bg-${nextIndex}`}
+          card={nextCard}
+          onSwipeRight={() => {}}
+          onSwipeLeft={() => {}}
+          isTop={false}
+        />
+        {/* 当前卡（参与动画进出） */}
+        <AnimatePresence mode="popLayout">
+          <CharacterCard
+            key={`top-${currentIndex}`}
+            card={currentCard}
+            onSwipeRight={handleSwipeRight}
+            onSwipeLeft={handleSwipeLeft}
+            isTop={true}
+          />
+        </AnimatePresence>
+      </div>
+
+      {/* 操作按钮 */}
+      <div className="flex justify-center items-center gap-6 pb-6">
+        <motion.button
+          className="w-12 h-12 rounded-full bg-white/5 border border-red-400/30 flex items-center justify-center text-red-400 text-lg"
+          whileHover={{ scale: 1.15, borderColor: "rgba(248,113,113,0.6)" }}
+          whileTap={{ scale: 0.85 }}
+          onClick={handleSwipeLeft}
+          aria-label="跳过"
+        >
+          ✕
+        </motion.button>
+
+        <motion.button
+          className="w-14 h-14 rounded-full bg-gradient-to-br from-pink-500 to-violet-600 flex items-center justify-center text-2xl shadow-lg shadow-pink-500/20"
+          whileHover={{ scale: 1.12 }}
+          whileTap={{ scale: 0.88 }}
+          onClick={handleSwipeRight}
+          aria-label="开始聊天"
+        >
+          💬
+        </motion.button>
+
+        <motion.button
+          className="w-12 h-12 rounded-full bg-white/5 border border-white/20 flex items-center justify-center text-white/60 text-lg"
+          whileHover={{ scale: 1.15, borderColor: "rgba(255,255,255,0.4)" }}
+          whileTap={{ scale: 0.85 }}
+          onClick={() => setCurrentIndex((prev) => (prev + 1) % cardDataList.length)}
+          aria-label="下一个"
+        >
+          →
+        </motion.button>
+      </div>
+
+      {/* 进度点 */}
+      <div className="flex justify-center gap-1.5 pb-6">
+        {cardDataList.map((card, i) => (
+          <motion.div
+            key={i}
+            className="h-1.5 rounded-full transition-all duration-300"
+            style={{
+              width: i === currentIndex ? 20 : 6,
+              background: i === currentIndex ? card.accentColor : "rgba(255,255,255,0.15)",
+            }}
+            animate={{ scale: i === currentIndex ? 1 : 0.8 }}
+          />
+        ))}
+      </div>
     </motion.div>
   );
 }

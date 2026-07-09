@@ -1,4 +1,36 @@
 {
   "envId": "linxi-d2gcj01lm1b6d05c8",
-  "region": "ap-shanghai"
+  "functionRoot": "./functions",
+  "functions": [
+    {
+      "name": "chat",
+      "timeout": 20,
+      "runtime": "Nodejs16.13",
+      "handler": "index.main",
+      "envVariables": {
+        "LLM_API_KEY": "",
+        "LLM_BASE_URL": "https://api.deepseek.com/v1",
+        "LLM_MODEL": "deepseek-chat"
+      }
+    },
+    {
+      "name": "proactive-news",
+      "timeout": 30,
+      "runtime": "Nodejs16.13",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "LLM_API_KEY": "",
+        "LLM_BASE_URL": "https://api.deepseek.com/v1",
+        "LLM_MODEL": "deepseek-chat"
+      },
+      "triggers": [
+        {
+          "name": "hourly-news",
+          "type": "timer",
+          "config": "0 0 * * * * *"
+        }
+      ]
+    }
+  ]
 }

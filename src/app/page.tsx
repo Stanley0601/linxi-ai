@@ -4,26 +4,39 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { CharacterStatus, MomentComment, MomentPost, ProactiveInboxState, RelationshipState, TabType, UserProfile } from "@/types";
 import { characters, getCharacter } from "@/lib/characters";
-import { getStagesForCharacter } from "@/lib/story-stages";
+import { getStagesForCharacter, getEndingsForCharacter } from "@/lib/story-stages";
 import { momentPosts } from "@/lib/moments-data";
 import { getTimeline } from "@/lib/timeline-data";
 import { getRandomStatus, getDailyLifeForStages } from "@/lib/daily-life";
 import { buildInterestMomentPosts, buildProactiveInterestEntry, getAffinityScore, getFreshnessLabel, getInterestSummaryLine, getRecommendedReason } from "@/lib/interest-context";
 import { getRelationshipMomentReason } from "@/lib/relationship-context";
 import {
-  saveAllProgress, loadAllProgress,
-  saveSelectedStory, loadSelectedStory,
-  loadChatHistory, clearChatHistory,
-  loadMomentState, saveMomentState,
-  saveUserProfile, loadUserProfile,
-  loadProactiveInbox, saveProactiveInbox,
-  clearProactiveInboxEntry,
-  loadUserSignals, saveUserSignals,
-  loadRelationshipState, saveRelationshipState,
   clearAllData,
-  saveScheduledMessages, loadScheduledMessages, markMessageTriggered,
+  clearChatHistory,
+  clearProactiveInboxEntry,
+  getLastResumableChatCharacterId,
+  loadAllProgress,
+  loadChatDraft,
+  loadChatHistory,
+  loadHiddenMutedChatIds,
+  loadMomentState,
+  loadMutedChatIds,
+  loadPinnedChatIds,
+  loadProactiveInbox,
+  loadRelationshipState,
+  loadSelectedStory,
+  loadUserProfile,
+  loadUserSignals,
+  saveAllProgress,
+  saveHiddenMutedChatIds,
+  saveUserSignals,
+  saveMomentState,
+  saveProactiveInbox,
+  saveRecentEndingSummary,
+  saveRelationshipState,
+  saveSelectedStory,
+  saveUserProfile,
 } from "@/lib/memory";
-import { getTriggeredMessages, getStoryScheduledMessages, formatRealWait, type ScheduledMessage } from "@/lib/time-engine";
 import {
   Landing,
   StorySelect,
@@ -37,6 +50,8 @@ import {
   EndingView,
   MyProfileTab,
 } from "@/components";
+import { useProactiveMessages } from "@/lib/use-proactive-messages";
+import { ProactiveNotification } from "@/components/ProactiveNotification";
 
 const DEFAULT_PROGRESS: Record<string, { stageProgress: number; hasFinished: boolean; endingId?: string }> = {
   xiaoyu: { stageProgress: 0, hasFinished: false },
@@ -110,11 +125,12 @@ function getInitialSelectedStory() {
   return loadSelectedStory();
 }
 
-function getInitialPhase(): "landing" | "select" | "app" | "chat" | "ending" | "profile" | "timeline" {
+function getInitialPhase(): "landing" | "select" | "interest" | "app" | "chat" | "ending" | "profile" | "timeline" {
   if (typeof window === "undefined") return "landing";
   const savedStory = loadSelectedStory();
+  const savedProfile = loadUserProfile();
   if (!savedStory) return "landing";
-  return "app";
+  return savedProfile?.interestTags?.length ? "app" : "interest";
 }
 
 function getInitialProactiveInboxState(): ProactiveInboxState {
@@ -164,12 +180,12 @@ function getInitialRelationships() {
 }
 
 export default function Home() {
-  type Phase = "landing" | "select" | "app" | "chat" | "ending" | "profile" | "timeline";
+  type Phase = "landing" | "select" | "interest" | "app" | "chat" | "ending" | "profile" | "timeline";
 
-  const [phase, setPhase] = useState<Phase>("landing");
+  const [phase, setPhase] = useState<Phase>(() => getInitialPhase());
   const [tab, setTab] = useState<TabType>("messages");
-  const [activeCharId, setActiveCharId] = useState<string | null>(null);
-  const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
+  const [activeCharId, setActiveCharId] = useState<string | null>(() => getInitialSelectedStory());
+  const [selectedStoryId, setSelectedStoryId] = useState<string | null>(() => getInitialSelectedStory());
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [viewTimelineId, setViewTimelineId] = useState<string | null>(null);
   const [endingId, setEndingId] = useState("");
@@ -179,23 +195,33 @@ export default function Home() {
   const [proactiveInbox, setProactiveInbox] = useState<ProactiveInboxState>(() => getInitialProactiveInboxState());
   const [consumedProactiveEntry, setConsumedProactiveEntry] = useState<ProactiveInboxState>({});
   const [relationships, setRelationships] = useState<Record<string, RelationshipState>>(() => getInitialRelationships());
+  const [pinnedChatIds, setPinnedChatIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    return loadPinnedChatIds();
+  });
+  const [mutedChatIds] = useState<string[]>(() => loadMutedChatIds());
+  const [hiddenMutedChatIds, setHiddenMutedChatIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    return loadHiddenMutedChatIds();
+  });
 
   const [charProgress, setCharProgress] = useState<Record<string, {
     stageProgress: number; hasFinished: boolean; endingId?: string;
   }>>(() => getInitialProgressState());
 
-  // Hydrate from localStorage after mount (avoids SSR mismatch)
-  useEffect(() => {
-    const savedPhase = getInitialPhase();
-    const savedStory = getInitialSelectedStory();
-    if (savedStory) {
-      setSelectedStoryId(savedStory);
-      setActiveCharId(savedStory);
-    }
-    if (savedPhase !== "landing") {
-      setPhase(savedPhase);
-    }
-  }, []);
+  // 主动消息轮询（基于实时新闻 + 用户兴趣）
+  const chatMode = typeof window !== "undefined" ? (localStorage.getItem("linxi_chat_mode") || "offline") : "offline";
+  const onlineUserId = typeof window !== "undefined" ? (localStorage.getItem("linxi_user_id") || "local-user") : "local-user";
+  const proactiveMessages = useProactiveMessages({
+    userId: onlineUserId,
+    enabled: true, // 始终启用，CloudBase 云函数处理
+    pollIntervalMs: 180000, // 3分钟轮询
+    interestTags: userProfile?.interestTags,
+  });
+
+  // 角色信息映射（用于主动消息通知展示）
+  const characterNames = useMemo(() => Object.fromEntries(characters.map((c) => [c.id, c.name])), []);
+  const characterAvatars = useMemo(() => Object.fromEntries(characters.map((c) => [c.id, c.avatar])), []);
 
   useEffect(() => {
     if (selectedStoryId) saveSelectedStory(selectedStoryId);
@@ -218,7 +244,9 @@ export default function Home() {
     if (tab === "moments") {
       lastViewedMomentsRef.current = Date.now();
     }
+    const currentSignals = loadUserSignals() || { likedCharacterIds: [], likedTopicTags: [] };
     saveUserSignals({
+      ...currentSignals,
       likedCharacterIds: userProfile.likedCharacterIds || [],
       likedTopicTags: userProfile.likedTopicTags || [],
       lastViewedMomentsAt: lastViewedMomentsRef.current,
@@ -234,54 +262,49 @@ export default function Home() {
   }, [momentState]);
 
   useEffect(() => {
+    saveHiddenMutedChatIds(hiddenMutedChatIds);
+  }, [hiddenMutedChatIds]);
+
+  useEffect(() => {
     saveProactiveInbox(proactiveInbox);
   }, [proactiveInbox]);
 
+  // 将云函数主动消息同步到 proactiveInbox（消息列表展示用）
+  useEffect(() => {
+    if (proactiveMessages.entries.length === 0) return;
+    const updates: Record<string, typeof proactiveInbox[string]> = {};
+    for (const entry of proactiveMessages.entries) {
+      if (!proactiveInbox[entry.characterId]) {
+        updates[entry.characterId] = {
+          characterId: entry.characterId,
+          stageId: "proactive-news",
+          messages: entry.messages.map((m, i) => ({
+            id: `proactive-${entry.id}-${i}`,
+            from: "char" as const,
+            type: "text" as const,
+            text: m.text,
+            delay: m.delay,
+            typing: 300,
+          })),
+          triggerCondition: "return_visit",
+          id: entry.id,
+          unread: true,
+          preview: entry.preview,
+          lastMessageTime: new Date(entry.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }),
+          topicTag: entry.topicTag as typeof proactiveInbox[string]["topicTag"],
+          createdAt: new Date(entry.createdAt).getTime(),
+        };
+      }
+    }
+    if (Object.keys(updates).length > 0) {
+      setTimeout(() => setProactiveInbox(prev => ({ ...prev, ...updates })), 0);
+    }
+  }, [proactiveMessages.entries]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [liveStatuses, setLiveStatuses] = useState<Record<string, string>>({});
 
-  // 时间加速引擎：定时检查是否有待触发的主动消息
   useEffect(() => {
-    if (phase === "landing" || phase === "select") return;
-
-    const checkScheduled = () => {
-      const all = loadScheduledMessages();
-      const triggered = getTriggeredMessages(all);
-      if (triggered.length === 0) return;
-
-      triggered.forEach(msg => {
-        setProactiveInbox(prev => ({
-          ...prev,
-          [msg.characterId]: {
-            id: msg.id,
-            characterId: msg.characterId,
-            stageId: "",
-            triggerCondition: "idle" as const,
-            messages: msg.messages.map((m, i) => ({
-              id: `sched-msg-${msg.id}-${i}`,
-              from: "char" as const,
-              type: "text" as const,
-              text: m.text,
-              delay: 600 + i * 400,
-              typing: 500,
-            })),
-            unread: true,
-            preview: msg.messages[0]?.text || "",
-            lastMessageTime: "刚刚",
-            topicTag: undefined,
-            createdAt: Date.now(),
-          },
-        }));
-        markMessageTriggered(msg.id);
-      });
-    };
-
-    checkScheduled();
-    const interval = setInterval(checkScheduled, 30000); // 每30秒检查
-    return () => clearInterval(interval);
-  }, [phase]);
-
-  useEffect(() => {
-    if (!selectedStoryId || phase === "landing" || phase === "select") return;
+    if (!selectedStoryId || phase === "landing" || phase === "select" || phase === "interest") return;
     const prog = charProgress[selectedStoryId];
     const stages = getStagesForCharacter(selectedStoryId);
     const currentStageId = stages[Math.min(prog?.stageProgress || 0, stages.length - 1)]?.id;
@@ -317,7 +340,7 @@ export default function Home() {
           characterId: d.characterId,
           stageId: d.stageId,
           text: d.photoDesc ? `${d.text}\n${d.photoDesc}` : d.text,
-          imageEmoji: d.type === "food" ? "🍽️" : d.type === "selfie" ? "🤳" : d.type === "photo" ? "📸" : d.type === "music" ? "🎵" : undefined,
+          imageUrl: d.type === "food" ? "/moments/cafe-window.png" : d.type === "selfie" ? "/moments/library-study.png" : d.type === "photo" ? "/moments/art-sketch.png" : d.type === "music" ? "/moments/guitar-lyrics.png" : undefined,
           time: d.time === "深夜" ? "昨天 23:47" : d.time === "凌晨" ? "今天 02:13" : d.time === "上午" ? "今天 10:23" : d.time === "中午" ? "今天 12:08" : d.time === "下午" ? "今天 15:42" : d.time === "傍晚" ? "今天 18:15" : d.time === "晚上" ? "今天 21:30" : "刚刚",
           likes: getStableLikeCount(d.id),
           likedByUser: false,
@@ -355,6 +378,7 @@ export default function Home() {
         ?.slice()
         .reverse()
         .find(msg => msg.type === "text" || msg.type === "narration");
+      const draftText = loadChatDraft(c.id).trim();
 
       const msgs: Record<string, { last: string; time: string; unread: number }> = {
         xiaoyu: { last: "嗨！终于加上了，我是小宇~", time: "刚刚", unread: 3 },
@@ -366,9 +390,11 @@ export default function Home() {
 
       const previewText = proactiveEntry?.unread
         ? proactiveEntry.preview
-        : lastChatMsg
-          ? `${lastChatMsg.from === "user" ? "你：" : ""}${getChatPreview(lastChatMsg.text)}`
-          : info.last;
+        : draftText
+          ? `草稿：${getChatPreview(draftText)}`
+          : lastChatMsg
+            ? `${lastChatMsg.from === "user" ? "你：" : ""}${getChatPreview(lastChatMsg.text)}`
+            : info.last;
 
       return {
         characterId: c.id,
@@ -379,6 +405,7 @@ export default function Home() {
           : savedChat?.lastUpdated
             ? formatRecentTime(savedChat.lastUpdated)
             : info.time,
+        activityTimestamp: proactiveEntry?.createdAt ?? savedChat?.lastUpdated,
         unreadCount: proactiveEntry?.unread
           ? proactiveEntry.messages.length
           : savedChat
@@ -387,6 +414,9 @@ export default function Home() {
         stageProgress: prog.stageProgress,
         hasFinished: prog.hasFinished,
         endingId: prog.endingId,
+        isPinned: pinnedChatIds.includes(c.id),
+        isMuted: mutedChatIds.includes(c.id),
+        isHiddenByMute: hiddenMutedChatIds.includes(c.id),
         isProactiveInterest: !!proactiveEntry?.unread,
         proactiveTag: proactiveEntry?.topicTag,
         interestSummary: userProfile ? getInterestSummaryLine(userProfile) : undefined,
@@ -396,17 +426,18 @@ export default function Home() {
         familiarity: relationships[c.id]?.familiarity,
         relationshipStage: relationships[c.id]?.stage,
         chemistry: relationships[c.id]?.chemistry,
+        draftPreview: draftText || undefined,
       };
     });
 
     return mapped.sort((a, b) => {
+      if ((a.isPinned ? 1 : 0) !== (b.isPinned ? 1 : 0)) return (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0);
       if (a.unreadCount !== b.unreadCount) return b.unreadCount - a.unreadCount;
+      if ((b.activityTimestamp || 0) !== (a.activityTimestamp || 0)) return (b.activityTimestamp || 0) - (a.activityTimestamp || 0);
       if ((b.affinityScore || 0) !== (a.affinityScore || 0)) return (b.affinityScore || 0) - (a.affinityScore || 0);
-      return (b.lastMessageTime || "").localeCompare(a.lastMessageTime || "");
+      return a.characterId.localeCompare(b.characterId);
     });
-    // chatKey is intentionally included to force recompute after navigating back from chat
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [charProgress, selectedStoryId, liveStatuses, proactiveInbox, userProfile, relationships, chatKey]);
+  }, [charProgress, selectedStoryId, liveStatuses, proactiveInbox, userProfile, relationships, pinnedChatIds, mutedChatIds, hiddenMutedChatIds]);
 
   const unreadTotal = charStatuses.reduce((sum, s) => sum + s.unreadCount, 0);
 
@@ -444,6 +475,19 @@ export default function Home() {
       return bScore - aScore;
     });
   }, [charProgress, localMoments, selectedStoryId, momentState, relationships]);
+
+  const hasMomentsUpdate = useMemo(() => {
+    if (unreadTotal > 0) return true;
+    const lastViewedMomentsAt = loadUserSignals()?.lastViewedMomentsAt || 0;
+    const viewedToday = lastViewedMomentsAt > 0
+      && new Date(lastViewedMomentsAt).toDateString() === new Date().toDateString();
+
+    if (!viewedToday) {
+      return visibleMoments.some(post => post.time.includes("今天") || post.time === "刚刚");
+    }
+
+    return false;
+  }, [unreadTotal, visibleMoments]);
 
   const handleToggleLike = useCallback((postId: string) => {
     const post = localMoments.find(item => item.id === postId);
@@ -494,6 +538,24 @@ export default function Home() {
       ...prev,
       [charId]: { stageProgress: 4, hasFinished: true, endingId: eid },
     }));
+
+    const character = getCharacter(charId);
+    const ending = getEndingsForCharacter(charId).endings.get(eid);
+
+    if (character && ending) {
+      saveRecentEndingSummary({
+        characterId: charId,
+        characterName: character.name,
+        endingId: eid,
+        endingTitle: ending.title,
+        endingEmoji: ending.emoji,
+        relationshipStage: relationship.stage,
+        familiarity: relationship.familiarity,
+        chemistry: relationship.chemistry,
+        savedAt: Date.now(),
+      });
+    }
+
     setEndingId(eid);
     setPhase("ending");
   }, []);
@@ -501,22 +563,29 @@ export default function Home() {
   const handleSelectStory = useCallback((charId: string) => {
     setSelectedStoryId(charId);
     setActiveCharId(charId);
-    // 调度第一阶段的定时主动消息
-    const stages = getStagesForCharacter(charId);
-    const firstStageId = stages[0]?.id;
-    if (firstStageId) {
-      const existing = loadScheduledMessages();
-      const alreadyHas = existing.some(s => s.characterId === charId);
-      if (!alreadyHas) {
-        const newScheduled = getStoryScheduledMessages(charId, firstStageId);
-        if (newScheduled.length > 0) {
-          saveScheduledMessages([...existing, ...newScheduled]);
+    setPhase("interest");
+  }, []);
+
+  const handleConfirmInterests = useCallback(({ tags, city }: { tags: UserProfile["interestTags"]; city: string }) => {
+    const nextProfile = { interestTags: tags, updatedAt: Date.now(), city };
+    setUserProfile(nextProfile);
+
+    if (selectedStoryId && !loadChatHistory(selectedStoryId) && !proactiveInbox[selectedStoryId]) {
+      const stageId = getStagesForCharacter(selectedStoryId)[0]?.id;
+      if (stageId) {
+        const entry = buildProactiveInterestEntry(selectedStoryId, stageId, nextProfile);
+        if (entry) {
+          setProactiveInbox(prev => ({
+            ...prev,
+            [selectedStoryId]: entry,
+          }));
         }
       }
     }
+
     setTab("messages");
     setPhase("app");
-  }, []);
+  }, [selectedStoryId, proactiveInbox]);
 
   const handleOpenChat = useCallback((cid: string) => {
     setActiveCharId(cid);
@@ -591,6 +660,8 @@ export default function Home() {
     setProactiveInbox({});
     setConsumedProactiveEntry({});
     setRelationships(getDefaultRelationships());
+    setPinnedChatIds([]);
+    setHiddenMutedChatIds([]);
   }, []);
 
   const activeChar = activeCharId ? getCharacter(activeCharId) : null;
@@ -599,34 +670,82 @@ export default function Home() {
   const activeProactiveEntry = activeCharId ? consumedProactiveEntry[activeCharId] || proactiveInbox[activeCharId] || null : null;
 
   return (
-    <main className="h-full overflow-hidden">
+    <main className="h-screen overflow-hidden">
       <AnimatePresence mode="wait">
         {phase === "landing" && <Landing key="landing" onStart={() => setPhase("select")} />}
 
         {phase === "select" && <StorySelect key="select" onSelect={handleSelectStory} />}
 
+        {phase === "interest" && activeChar && (
+          <InterestSelect
+            key={`interest-${activeChar.id}`}
+            character={activeChar}
+            initialSelected={userProfile?.interestTags || []}
+            initialCity={userProfile?.city || "深圳"}
+            onBack={() => setPhase("select")}
+            onConfirm={handleConfirmInterests}
+          />
+        )}
+
         {phase === "app" && (
-          <motion.div key="app" className="h-full flex flex-col"
+          <motion.div key={`app-${chatKey}`} className="h-screen flex flex-col"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             {tab === "messages" && (
-              <MessageListPage
-                statuses={charStatuses}
-                onSelectChat={handleOpenChat}
-                onSelectProfile={(cid) => {
-                  setViewProfileId(cid);
-                  setPhase("profile");
-                }}
-              />
+              <section id="messages-panel" role="tabpanel" aria-labelledby="messages-tab" className="flex-1 min-h-0">
+                {/* 基于实时新闻的主动消息通知 */}
+                {proactiveMessages.entries.length > 0 && (
+                  <ProactiveNotification
+                    entries={proactiveMessages.entries}
+                    characterNames={characterNames}
+                    characterAvatars={characterAvatars}
+                    onEntryClick={(entry) => {
+                      proactiveMessages.markAsRead(entry.id);
+                      handleOpenChat(entry.characterId);
+                    }}
+                    onDismiss={(entryId) => proactiveMessages.markAsRead(entryId)}
+                  />
+                )}
+                <MessageListPage
+                  statuses={charStatuses}
+                  onSelectChat={handleOpenChat}
+                  onSelectProfile={(cid) => {
+                    setViewProfileId(cid);
+                    setPhase("profile");
+                  }}
+                  onPinnedChatsChange={setPinnedChatIds}
+                  onHiddenMutedChatsChange={setHiddenMutedChatIds}
+                />
+              </section>
             )}
             {tab === "moments" && (
-              <MomentsFeed
-                posts={visibleMoments}
-                onToggleLike={handleToggleLike}
-                onAddComment={handleAddComment}
-              />
+              <section id="moments-panel" role="tabpanel" aria-labelledby="moments-tab" className="flex-1 min-h-0">
+                <MomentsFeed
+                  posts={visibleMoments}
+                  onToggleLike={handleToggleLike}
+                  onAddComment={handleAddComment}
+                />
+              </section>
             )}
-            {tab === "profile" && <MyProfileTab userProfile={userProfile} onResetAll={handleResetAll} onUpdateNickname={(name) => setUserProfile(prev => ({ ...(prev || { interestTags: [], updatedAt: Date.now() }), nickname: name }))} onUpdateAvatar={(url) => setUserProfile(prev => ({ ...(prev || { interestTags: [], updatedAt: Date.now() }), avatar: url }))} />}
-            <BottomTabBar current={tab} onChange={setTab} unreadTotal={unreadTotal} />
+            {tab === "profile" && (
+              <section id="profile-panel" role="tabpanel" aria-labelledby="profile-tab" className="flex-1 min-h-0">
+                <MyProfileTab
+                  userProfile={userProfile}
+                  onResetAll={handleResetAll}
+                  onUpdateProfile={(updates) => {
+                    setUserProfile((prev) => prev ? { ...prev, ...updates, updatedAt: Date.now() } : null);
+                  }}
+                  onResumeLastChat={() => {
+                    const resumableCharacterId = getLastResumableChatCharacterId();
+                    const resumableStatus = (resumableCharacterId
+                      ? charStatuses.find((status) => status.characterId === resumableCharacterId)
+                      : null) || charStatuses.find((status) => Boolean(status.activityTimestamp)) || charStatuses[0];
+                    if (!resumableStatus) return;
+                    handleOpenChat(resumableStatus.characterId);
+                  }}
+                />
+              </section>
+            )}
+            <BottomTabBar current={tab} onChange={setTab} unreadTotal={unreadTotal} hasMomentsUpdate={hasMomentsUpdate} />
           </motion.div>
         )}
 
@@ -637,13 +756,8 @@ export default function Home() {
             userProfile={userProfile}
             relationship={relationships[activeChar.id] || null}
             proactiveEntry={activeProactiveEntry}
-            onInterestConfirm={(tags) => {
-              setUserProfile(prev => ({
-                ...(prev || { interestTags: [], updatedAt: 0 }),
-                interestTags: tags,
-                updatedAt: Date.now(),
-              }));
-            }}
+            chatMode={(typeof window !== "undefined" && localStorage.getItem("linxi_chat_mode") === "online") ? "online" : "offline"}
+            userId={typeof window !== "undefined" ? (localStorage.getItem("linxi_user_id") || "local-user") : "local-user"}
             onEnd={(eid, relationship) => handleChatEnd(activeChar.id, eid, relationship)}
             onBack={(relationship) => {
               if (activeChar.id) {
@@ -659,22 +773,11 @@ export default function Home() {
                   setCharProgress(prev => {
                     const current = prev[activeChar.id];
                     if (!current || current.hasFinished || current.stageProgress >= 3) return prev;
-                    const newProgress = Math.max(current.stageProgress, Math.min(3, saved.stageIndex + 1));
-                    // 调度下一阶段的定时主动消息
-                    const stages = getStagesForCharacter(activeChar.id);
-                    const nextStageId = stages[newProgress]?.id;
-                    if (nextStageId) {
-                      const newScheduled = getStoryScheduledMessages(activeChar.id, nextStageId);
-                      if (newScheduled.length > 0) {
-                        const existing = loadScheduledMessages();
-                        saveScheduledMessages([...existing, ...newScheduled]);
-                      }
-                    }
                     return {
                       ...prev,
                       [activeChar.id]: {
                         ...current,
-                        stageProgress: newProgress,
+                        stageProgress: Math.max(current.stageProgress, Math.min(3, saved.stageIndex + 1)),
                       },
                     };
                   });

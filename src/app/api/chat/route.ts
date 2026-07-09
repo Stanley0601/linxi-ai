@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { ChatApiRequest, ChatApiResponse } from "@/types";
+import type { ChatApiRequest, ChatApiResponse, StoryStage } from "@/types";
 import { getCharacter } from "@/lib/characters";
 import { buildSystemPrompt } from "@/lib/prompts";
 import { getStagesForCharacter } from "@/lib/story-stages";
-import { buildMoodPromptBlock } from "@/lib/mood-engine";
 
 /**
  * POST /api/chat
@@ -20,22 +19,53 @@ import { buildMoodPromptBlock } from "@/lib/mood-engine";
 const API_KEY = process.env.LLM_API_KEY;
 const BASE_URL = process.env.LLM_BASE_URL || "https://api.deepseek.com/v1";
 const MODEL = process.env.LLM_MODEL || "deepseek-chat";
+const LLM_TIMEOUT_MS = 12000;
+
+function createFallbackResponse(stage: StoryStage, text: string): NextResponse {
+  return NextResponse.json({
+    replies: [{ text, delay: 500 }],
+    emotion: stage.emotion,
+    shouldAdvanceStage: false,
+    nextStageId: stage.nextStageId,
+    suggestedReplies: stage.suggestedReplies,
+  } satisfies ChatApiResponse);
+}
+
+function isValidChatRequest(body: unknown): body is ChatApiRequest {
+  if (!body || typeof body !== "object") return false;
+
+  const payload = body as Partial<ChatApiRequest>;
+
+  return typeof payload.characterId === "string"
+    && typeof payload.stageId === "string"
+    && Array.isArray(payload.history)
+    && payload.history.every(
+      message => message
+        && typeof message === "object"
+        && (message.role === "assistant" || message.role === "user")
+        && typeof message.content === "string",
+    )
+    && typeof payload.userMessage === "string";
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body: ChatApiRequest = await request.json();
+    const body: unknown = await request.json();
+
+    if (!isValidChatRequest(body)) {
+      return NextResponse.json({ error: "Invalid chat payload" }, { status: 400 });
+    }
 
     if (API_KEY) {
       return await callLLM(body);
     }
 
-    return NextResponse.json({
-      replies: [{ text: "（LLM API未配置，当前仍使用本地剧情引擎）", delay: 500 }],
-      emotion: "neutral",
-      shouldAdvanceStage: false,
-      nextStageId: null,
-      suggestedReplies: [],
-    } satisfies ChatApiResponse);
+    const stage = getStagesForCharacter(body.characterId).find(item => item.id === body.stageId);
+    if (!stage) {
+      return NextResponse.json({ error: "Invalid character or stage" }, { status: 400 });
+    }
+
+    return createFallbackResponse(stage, "（LLM API未配置，当前仍使用本地剧情引擎）");
   } catch (error) {
     console.error("Chat API error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -50,100 +80,64 @@ async function callLLM(body: ChatApiRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid character or stage" }, { status: 400 });
   }
 
-  let systemPrompt = buildSystemPrompt(
+  const systemPrompt = buildSystemPrompt(
     character,
     stage,
     body.userProfile || null,
     body.realtimeTopics,
-    body.chatSummary || null,
   );
 
-  // 注入心情状态
-  if (body.mood) {
-    const moodBlock = buildMoodPromptBlock({
-      current: body.mood.current as "excited" | "happy" | "calm" | "anxious" | "down",
-      intensity: body.mood.intensity,
-      history: [],
+  try {
+    const response = await fetch(`${BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...body.history,
+          { role: "user", content: body.userMessage },
+        ],
+        temperature: 0.85,
+        max_tokens: 300,
+      }),
+      signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
-    systemPrompt = systemPrompt + "\n\n" + moodBlock;
-  }
 
-  const response = await fetch(`${BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...body.history,
-        { role: "user", content: body.userMessage },
-      ],
-      temperature: 0.85,
-      max_tokens: 300,
-    }),
-  });
-
-  const data = await response.json();
-  console.log("[LLM Response]", JSON.stringify(data).slice(0, 500));
-
-  if (!response.ok) {
-    console.error("[LLM Error]", data);
-    return NextResponse.json({
-      replies: [{ text: `API错误: ${data.error?.message || response.status}`, delay: 500 }],
-      emotion: "neutral",
-      shouldAdvanceStage: false,
-      nextStageId: null,
-      suggestedReplies: [],
-    });
-  }
-
-  const content: string = data.choices?.[0]?.message?.content || "嗯嗯";
-
-  const shouldAdvance = content.includes("[NEXT]");
-  const cleanContent = content.replace("[NEXT]", "").trim();
-  
-  // 分割消息：优先用 | 分割，fallback 用换行
-  let parts: string[];
-  if (cleanContent.includes("|")) {
-    parts = cleanContent.split("|").map((s: string) => s.trim()).filter(Boolean);
-  } else if (cleanContent.includes("\n")) {
-    parts = cleanContent.split("\n").map((s: string) => s.trim()).filter(Boolean);
-  } else if (cleanContent.length > 20) {
-    // 模型没遵循分割规则，强制按标点拆
-    const segments = cleanContent.split(/(?<=[，。！？\s])/);
-    parts = [];
-    let buf = "";
-    for (const seg of segments) {
-      if ((buf + seg).length > 18 && buf.length > 0) {
-        parts.push(buf.trim());
-        buf = seg;
-      } else {
-        buf += seg;
-      }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("LLM upstream error:", response.status, errorText);
+      return createFallbackResponse(stage, "（模型连接有点不稳定，我们先按当前剧情继续聊～）");
     }
-    if (buf.trim()) parts.push(buf.trim());
-    if (parts.length === 0) parts = [cleanContent];
-  } else {
-    parts = [cleanContent];
+
+    const data = await response.json();
+    const content = typeof data.choices?.[0]?.message?.content === "string"
+      ? data.choices[0].message.content
+      : "";
+
+    if (!content.trim()) {
+      return createFallbackResponse(stage, "（模型刚刚走神了一下，你可以再发一句，我会继续接住这段聊天）");
+    }
+
+    const shouldAdvance = content.includes("[NEXT]");
+    const cleanContent = content.replace("[NEXT]", "").trim();
+    const parts = cleanContent.split("|").map((s: string) => s.trim()).filter(Boolean);
+
+    return NextResponse.json({
+      replies: (parts.length ? parts : [cleanContent]).map((text: string, i: number) => ({
+        text,
+        delay: 600 + i * 400,
+      })),
+      emotion: stage.emotion,
+      shouldAdvanceStage: shouldAdvance,
+      nextStageId: stage.nextStageId,
+      suggestedReplies: stage.suggestedReplies,
+    } satisfies ChatApiResponse);
+  } catch (error) {
+    console.error("LLM request failed:", error);
+    return createFallbackResponse(stage, "（模型暂时没有及时回复，但这段关系不会丢，我们继续聊）");
   }
-
-  // 过滤掉图片描述（LLM有时会幻觉出[图片：xxx]这样的内容）
-  parts = parts
-    .map(p => p.replace(/\[图片[：:].*?\]/g, "").replace(/\[照片.*?\]/g, "").replace(/（发了.*?）/g, "").trim())
-    .filter(p => p.length > 0);
-  if (parts.length === 0) parts = ["嗯嗯"];
-
-  return NextResponse.json({
-    replies: parts.map((text: string, i: number) => ({
-      text,
-      delay: 600 + i * 400,
-    })),
-    emotion: stage.emotion,
-    shouldAdvanceStage: shouldAdvance,
-    nextStageId: stage.nextStageId,
-    suggestedReplies: stage.suggestedReplies,
-  } satisfies ChatApiResponse);
 }

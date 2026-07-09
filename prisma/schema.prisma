@@ -1,0 +1,226 @@
+// 灵犀（lin-xi）产品化数据库 Schema
+// PostgreSQL + pgvector
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [vector]
+}
+
+// ============================================
+// 用户
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  avatar    String?
+  city      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 兴趣画像
+  interestTags String[] @default([])
+
+  // 关联
+  conversations Conversation[]
+  relationships Relationship[]
+  memories      Memory[]
+  inboxEntries  InboxEntry[]
+
+  @@map("users")
+}
+
+// ============================================
+// 角色（配置化，可热更新）
+// ============================================
+
+model Character {
+  id             String @id // e.g. "xiaoyu", "haoran", "momo"
+  name           String
+  avatar         String
+  avatarImg      String
+  avatarBg       String
+  tagline        String
+  identity       String
+  briefIntro     String @db.Text
+  personality    String @db.Text
+  speakingStyle  String @db.Text
+  age            Int
+  school         String
+  major          String
+  signature      String
+  onlineStatus   String
+  backgroundImg  String
+  qqId           String
+
+  // 剧情配置（JSON）
+  storyStages Json @default("[]")
+
+  // 关联
+  conversations Conversation[]
+  relationships Relationship[]
+  moments       MomentPost[]
+  inboxEntries  InboxEntry[]
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("characters")
+}
+
+// ============================================
+// 对话会话
+// ============================================
+
+model Conversation {
+  id          String @id @default(cuid())
+  userId      String
+  characterId String
+
+  // LangGraph 状态快照（JSON）
+  graphState Json @default("{}")
+
+  // 当前阶段
+  currentStageId    String @default("opening")
+  currentStageIndex Int    @default(0)
+  turnsInStage      Int    @default(0)
+  isFinished        Boolean @default(false)
+  endingId          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 关联
+  user      User      @relation(fields: [userId], references: [id])
+  character Character @relation(fields: [characterId], references: [id])
+  messages  Message[]
+
+  @@unique([userId, characterId])
+  @@map("conversations")
+}
+
+// ============================================
+// 消息
+// ============================================
+
+model Message {
+  id             String @id @default(cuid())
+  conversationId String
+  role           String // "user" | "assistant" | "system" | "narrator"
+  content        String @db.Text
+  metadata       Json?  // emotion, intent, etc.
+
+  createdAt DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+// ============================================
+// 向量记忆（长期记忆）
+// ============================================
+
+model Memory {
+  id          String                    @id @default(cuid())
+  userId      String
+  characterId String?
+  type        String                    // "fact" | "preference" | "event" | "emotion"
+  content     String @db.Text           // 原始文本
+  embedding   Unsupported("vector(1536)")?  // pgvector embedding
+  importance  Float  @default(0.5)      // 重要性评分 0-1
+  lastAccessed DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, characterId])
+  @@map("memories")
+}
+
+// ============================================
+// 关系状态
+// ============================================
+
+model Relationship {
+  id          String @id @default(cuid())
+  userId      String
+  characterId String
+
+  familiarity Float  @default(0)   // 0-100
+  chemistry   Float  @default(0)   // 0-100
+  stage       String @default("陌生") // "陌生" | "熟络" | "暧昧"
+
+  // 关系事件日志
+  events Json @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id])
+  character Character @relation(fields: [characterId], references: [id])
+
+  @@unique([userId, characterId])
+  @@map("relationships")
+}
+
+// ============================================
+// 主动消息收件箱
+// ============================================
+
+model InboxEntry {
+  id          String  @id @default(cuid())
+  userId      String
+  characterId String
+  type        String  // "proactive" | "system" | "event"
+  preview     String
+  messages    Json    // ChatMsg[]
+  unread      Boolean @default(true)
+  triggerType String  // "scheduled" | "event" | "condition"
+
+  scheduledAt DateTime?
+  deliveredAt DateTime?
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id])
+  character Character @relation(fields: [characterId], references: [id])
+
+  @@index([userId, unread])
+  @@map("inbox_entries")
+}
+
+// ============================================
+// 朋友圈动态
+// ============================================
+
+model MomentPost {
+  id          String @id @default(cuid())
+  characterId String
+  stageId     String?
+  text        String @db.Text
+  imageDesc   String?
+  imageEmoji  String?
+  likes       Int    @default(0)
+  comments    Json   @default("[]")
+
+  // 可见性与推荐
+  relationshipStage  String?
+  recommendationTags String[] @default([])
+
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  character Character @relation(fields: [characterId], references: [id])
+
+  @@index([characterId, publishedAt])
+  @@map("moment_posts")
+}

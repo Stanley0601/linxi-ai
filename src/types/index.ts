@@ -53,7 +53,17 @@ export type InterestTag =
   | "新闻时事"
   | "音乐"
   | "电影"
-  | "美食";
+  | "美食"
+  | "旅行"
+  | "摄影"
+  | "读书"
+  | "健身"
+  | "穿搭"
+  | "宠物"
+  | "心理学"
+  | "创业"
+  | "考研"
+  | "留学";
 
 export interface UserProfile {
   interestTags: InterestTag[];
@@ -62,7 +72,7 @@ export interface UserProfile {
   likedCharacterIds?: string[];
   city?: string;
   nickname?: string;
-  avatar?: string;
+  avatarUrl?: string;
 }
 
 export type FamiliarityStage = "陌生" | "熟络" | "暧昧";
@@ -122,8 +132,6 @@ export interface ChatApiRequest {
   userMessage: string;
   userProfile?: UserProfile | null;
   realtimeTopics?: InterestTopic[];
-  chatSummary?: { summary: string; keyTopics: string[]; userAttitude: string } | null;
-  mood?: { current: string; intensity: number } | null;
 }
 
 export interface ChatApiResponse {
@@ -152,6 +160,18 @@ export interface EndingComparison {
   outcome?: EndingOutcomePreview;
 }
 
+export interface RecentEndingSummary {
+  characterId: string;
+  characterName: string;
+  endingId: string;
+  endingTitle: string;
+  endingEmoji: string;
+  relationshipStage?: FamiliarityStage;
+  familiarity?: number;
+  chemistry?: number;
+  savedAt: number;
+}
+
 // ======= v5 新增类型 =======
 
 /** 朋友圈/QQ空间动态 */
@@ -162,7 +182,7 @@ export interface MomentPost {
   text: string;
   imageDesc?: string;        // 配图描述（AI角色"拍的照片"）
   imageEmoji?: string;       // 配图用emoji代替（fallback）
-  imageUrl?: string;         // AI生成的真实配图路径
+  imageUrl?: string;         // 真实配图URL
   time: string;              // 显示时间 "3小时前" / "昨天 22:15"
   likes: number;
   likedByUser: boolean;
@@ -185,10 +205,14 @@ export interface CharacterStatus {
   onlineStatus: string;      // "在线" | "在图书馆" | 等
   lastMessage: string;       // 消息列表最后一条消息预览
   lastMessageTime: string;   // "刚刚" | "10:32" | "昨天"
+  activityTimestamp?: number;
   unreadCount: number;
   stageProgress: number;     // 0-4 剧情进度
   hasFinished: boolean;
   endingId?: string;
+  isPinned?: boolean;
+  isMuted?: boolean;
+  isHiddenByMute?: boolean;
   isProactiveInterest?: boolean;
   proactiveTag?: InterestTag;
   interestSummary?: string;
@@ -198,6 +222,7 @@ export interface CharacterStatus {
   familiarity?: number;
   relationshipStage?: FamiliarityStage;
   chemistry?: number;
+  draftPreview?: string;
 }
 
 /** 人生时间线节点 */
@@ -234,6 +259,34 @@ export type ProactiveInboxState = Record<string, ProactiveInboxEntry>;
 
 /** Tab 类型 */
 export type TabType = "messages" | "moments" | "profile";
+
+export interface LocalStorageSummary {
+  hasUserProfile: boolean;
+  chatHistoryCount: number;
+  finishedStoryCount: number;
+  likedMomentsCount: number;
+  commentCount: number;
+  draftCount: number;
+  hasSavedSearch: boolean;
+  hasSavedQuickFilter: boolean;
+  hasSelectedStory: boolean;
+  hasRelationships: boolean;
+  hasProactiveInbox: boolean;
+  hasMomentsFilter: boolean;
+  hideProfileDemoSummary: boolean;
+  hasRecentChat: boolean;
+  lastOpenedChatAt: number | null;
+  lastResumableChatCharacterId: string | null;
+  lastResumableChatCharacterName: string | null;
+  lastMessageSearch: string | null;
+  lastRecentMessageSearchTag: string | null;
+  pinnedChatCount: number;
+  mutedChatCount: number;
+  hiddenMutedChatCount: number;
+  recentMessageSearchTagCount: number;
+  recentInteractionChatCount: number;
+  recentEndingSummary: RecentEndingSummary | null;
+}
 
 /** App 全局状态 */
 export interface AppState {

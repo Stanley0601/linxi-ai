@@ -42,3 +42,4 @@ next-env.d.ts
 
 # workbuddy
 .workbuddy/
+/src/generated/prisma
