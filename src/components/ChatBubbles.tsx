@@ -6,6 +6,7 @@ import type { ChatMsg } from "@/types";
 import Avatar from "./Avatar";
 import { USER_AVATAR } from "@/lib/constants";
 import { parseStickerTag, parseImageTag } from "@/lib/stickers";
+import { getRandomSelfie } from "@/lib/selfies";
 
 // ── SVG 手绘表情脸组件 ──
 // 零静态资源依赖，永不缺图；情绪丰富、风格统一、带轻微描边。
@@ -106,7 +107,7 @@ function FaceSticker({ emotion }: { emotion: string }) {
   return faces[emotion] || faces.happy;
 }
 
-export function MsgBubble({ msg, charImg, charName }: { msg: ChatMsg; charImg: string; charName: string }) {
+export function MsgBubble({ msg, charImg, charName, charId }: { msg: ChatMsg; charImg: string; charName: string; charId: string }) {
   const shouldReduceMotion = useReducedMotion();
   const [showPreview, setShowPreview] = useState(false);
 
@@ -138,9 +139,18 @@ export function MsgBubble({ msg, charImg, charName }: { msg: ChatMsg; charImg: s
   const { cleanText, image } = parseImageTag(afterSticker);
   const displayText = cleanText.replace(/\[SELFIE\]/g, "").trim();
 
+  // 自拍：模型用 [SELFIE] 标记要求发照片时，从角色自拍池随机取一张。
+  // 用 useState 惰性初始化，确保每次挂载只随机一次，避免重渲染时图片闪烁变换。
+  const hasSelfie = /\[SELFIE\]/.test(msg.text);
+  const [selfieUrl] = useState(() =>
+    hasSelfie && charId ? getRandomSelfie(charId) : ""
+  );
+  const selfieImg = selfieUrl ? { url: selfieUrl, desc: "自拍" } : null;
+  const bubbleImg = image || selfieImg;
+
   const avatarSrc = isUser ? USER_AVATAR : charImg;
-  const previewSrc = image?.url || avatarSrc;
-  const previewAlt = image?.desc || (isUser ? "你" : charName);
+  const previewSrc = bubbleImg?.url || avatarSrc;
+  const previewAlt = bubbleImg?.desc || (isUser ? "你" : charName);
 
   return (
     <>
@@ -151,16 +161,16 @@ export function MsgBubble({ msg, charImg, charName }: { msg: ChatMsg; charImg: s
           {displayText && (
             <p className="text-[16px] leading-[1.7] text-[#111] whitespace-pre-wrap break-words">{displayText}</p>
           )}
-          {/* 图片气泡：[IMAGE:url|描述] */}
-          {image && (
+          {/* 图片气泡：[IMAGE:url|描述] 或 [SELFIE] 自拍 */}
+          {bubbleImg && (
             <div className="w-[220px] mt-2 rounded-xl overflow-hidden shadow-sm border border-[#eee] cursor-pointer bg-white"
               onClick={() => setShowPreview(true)}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={image.url} alt={image.desc || "分享的图片"} className="w-full object-cover block"
+              <img src={bubbleImg.url} alt={bubbleImg.desc || "分享的图片"} className="w-full object-cover block"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-              {image.desc && (
+              {bubbleImg.desc && (
                 <div className="px-2.5 py-1.5 bg-white/90">
-                  <p className="text-[12px] text-[#666]">{image.desc}</p>
+                  <p className="text-[12px] text-[#666]">{bubbleImg.desc}</p>
                 </div>
               )}
             </div>

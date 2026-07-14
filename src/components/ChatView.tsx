@@ -351,7 +351,7 @@ export default function ChatView({ char, userProfile, relationship, proactiveEnt
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-5" style={{ background: "#f5f5f5" }}>
         <div className="max-w-lg mx-auto space-y-4">
-          {displayed.map(msg => <MsgBubble key={msg.id} msg={msg} charImg={char.avatarImg} charName={char.name} />)}
+          {displayed.map(msg => <MsgBubble key={msg.id} msg={msg} charImg={char.avatarImg} charName={char.name} charId={char.id} />)}
           {typing && <TypingBubble charImg={char.avatarImg} charName={char.name} />}
         </div>
       </div>
