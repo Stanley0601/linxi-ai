@@ -61,7 +61,8 @@ export default function StorySelect({ onSelect }: { onSelect: (characterId: stri
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-white mb-2">选择你的灵犀伙伴</h1>
-          <p className="text-[15px] text-white/50 leading-relaxed">TA 们是真实存在的人，正在等一个可以聊天的朋友</p>
+          <p className="text-[15px] text-white/50 leading-relaxed">TA 们像真人一样生活着，正在等一个可以聊天的朋友</p>
+          <p className="text-[12px] text-white/30 mt-2">灵犀伙伴是 AI 虚拟角色 · 内容由人工智能生成</p>
         </div>
 
         {/* Story Cards */}

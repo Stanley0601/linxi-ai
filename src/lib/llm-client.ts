@@ -1,19 +1,15 @@
 /**
- * 客户端直连 LLM（用于静态部署，无需服务端 API Route）
+ * 聊天 API 客户端 —— 调用服务端 /api/chat。
+ * API Key 只存在于服务端环境变量（LLM_API_KEY），永远不会出现在浏览器里。
+ * 服务端未配置 key 或上游失败时返回 null，调用方降级到本地 mock 引擎。
  */
 
-import { buildSystemPrompt } from "./prompts";
-import { buildMoodPromptBlock, type MoodState } from "./mood-engine";
-import { getCharacter } from "./characters";
-import { getStagesForCharacter } from "./story-stages";
-import type { ChatApiResponse, UserProfile, InterestTopic } from "@/types";
+import type { MoodState } from "./mood-engine";
+import type { ChatApiRequest, ChatApiResponse, UserProfile } from "@/types";
 import type { ChatSummary } from "./memory";
+import { loadLayeredMemory, toPromptPayload } from "./layered-memory";
 
-const API_KEY = process.env.NEXT_PUBLIC_DEEPSEEK_KEY || "";
-const BASE_URL = "https://api.deepseek.com/v1";
-const MODEL = "deepseek-chat";
-
-export async function callLLMDirect(params: {
+export async function callChatApi(params: {
   characterId: string;
   stageId: string;
   history: { role: "user" | "assistant"; content: string }[];
@@ -21,88 +17,39 @@ export async function callLLMDirect(params: {
   userProfile?: UserProfile | null;
   chatSummary?: ChatSummary | null;
   mood?: MoodState | null;
+  crisis?: boolean;
 }): Promise<ChatApiResponse | null> {
-  const character = getCharacter(params.characterId);
-  const stage = getStagesForCharacter(params.characterId).find(s => s.id === params.stageId);
-
-  if (!character || !stage) return null;
-
-  let systemPrompt = buildSystemPrompt(
-    character,
-    stage,
-    params.userProfile || null,
-    undefined,
-    params.chatSummary || null,
-  );
-
-  if (params.mood) {
-    systemPrompt += "\n\n" + buildMoodPromptBlock(params.mood);
-  }
+  const body: ChatApiRequest = {
+    characterId: params.characterId,
+    stageId: params.stageId,
+    history: params.history,
+    userMessage: params.userMessage,
+    userProfile: params.userProfile || null,
+    chatSummary: params.chatSummary
+      ? {
+          summary: params.chatSummary.summary,
+          keyTopics: params.chatSummary.keyTopics,
+          userAttitude: params.chatSummary.userAttitude,
+          myStatements: params.chatSummary.myStatements,
+        }
+      : null,
+    mood: params.mood
+      ? { current: params.mood.current, intensity: params.mood.intensity }
+      : null,
+    // 分层记忆：事实库 + 最近情节 + 里程碑（裁剪后注入，控制 token）
+    layeredMemory: toPromptPayload(loadLayeredMemory(params.characterId)),
+    crisis: params.crisis || false,
+  };
 
   try {
-    const response = await fetch(`${BASE_URL}/chat/completions`, {
+    const response = await fetch("/api/chat", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...params.history,
-          { role: "user", content: params.userMessage },
-        ],
-        temperature: 0.85,
-        max_tokens: 300,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-
     if (!response.ok) return null;
-
-    const content: string = data.choices?.[0]?.message?.content || "嗯嗯";
-    const shouldAdvance = content.includes("[NEXT]");
-    const cleanContent = content.replace("[NEXT]", "").trim();
-
-    // 分割消息
-    let parts: string[];
-    if (cleanContent.includes("|")) {
-      parts = cleanContent.split("|").map((s: string) => s.trim()).filter(Boolean);
-    } else if (cleanContent.includes("\n")) {
-      parts = cleanContent.split("\n").map((s: string) => s.trim()).filter(Boolean);
-    } else if (cleanContent.length > 20) {
-      const segments = cleanContent.split(/(?<=[，。！？\s])/);
-      parts = [];
-      let buf = "";
-      for (const seg of segments) {
-        if ((buf + seg).length > 18 && buf.length > 0) {
-          parts.push(buf.trim());
-          buf = seg;
-        } else {
-          buf += seg;
-        }
-      }
-      if (buf.trim()) parts.push(buf.trim());
-      if (parts.length === 0) parts = [cleanContent];
-    } else {
-      parts = [cleanContent];
-    }
-
-    // 过滤图片描述
-    parts = parts
-      .map(p => p.replace(/\[图片[：:].*?\]/g, "").replace(/\[照片.*?\]/g, "").replace(/（发了.*?）/g, "").trim())
-      .filter(p => p.length > 0);
-    if (parts.length === 0) parts = ["嗯嗯"];
-
-    return {
-      replies: parts.map((text, i) => ({ text, delay: 600 + i * 400 })),
-      emotion: stage.emotion,
-      shouldAdvanceStage: shouldAdvance,
-      nextStageId: stage.nextStageId,
-      suggestedReplies: stage.suggestedReplies,
-    };
+    return (await response.json()) as ChatApiResponse;
   } catch {
     return null;
   }

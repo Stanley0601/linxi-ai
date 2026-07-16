@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { CharacterStatus, MomentComment, MomentPost, ProactiveInboxState, RelationshipState, TabType, UserProfile } from "@/types";
 import { characters, getCharacter } from "@/lib/characters";
-import { getStagesForCharacter } from "@/lib/story-stages";
+import { getStagesForCharacter, getEndingsForCharacter } from "@/lib/story-stages";
 import { momentPosts } from "@/lib/moments-data";
 import { getTimeline } from "@/lib/timeline-data";
 import { getRandomStatus, getDailyLifeForStages } from "@/lib/daily-life";
@@ -22,8 +22,19 @@ import {
   loadRelationshipState, saveRelationshipState,
   clearAllData,
   saveScheduledMessages, loadScheduledMessages, markMessageTriggered,
+  loadChatSummary, saveChatSummary,
 } from "@/lib/memory";
 import { getTriggeredMessages, getStoryScheduledMessages, formatRealWait, type ScheduledMessage } from "@/lib/time-engine";
+import { mergeDueIntoInbox } from "@/lib/proactive-sync";
+import {
+  registerScheduledMessages, fetchDueScheduled, consumeScheduled,
+  fetchRemoteSummaries, enablePushNotifications,
+  saveLayeredMemoryRemote, fetchRemoteLayeredMemories,
+} from "@/lib/sync";
+import {
+  recordMilestone, milestonesToTimelineEvents,
+  loadLayeredMemory, saveLayeredMemory,
+} from "@/lib/layered-memory";
 import {
   Landing,
   StorySelect,
@@ -243,42 +254,50 @@ export default function Home() {
   useEffect(() => {
     if (phase === "landing" || phase === "select") return;
 
-    const checkScheduled = () => {
+    const checkScheduled = async () => {
+      // 本地调度（页面开着时的即时触发）
       const all = loadScheduledMessages();
-      const triggered = getTriggeredMessages(all);
-      if (triggered.length === 0) return;
+      const localDue = getTriggeredMessages(all);
+      if (localDue.length > 0) {
+        setProactiveInbox(prev => mergeDueIntoInbox(prev, localDue).inbox);
+        localDue.forEach(msg => markMessageTriggered(msg.id));
+      }
 
-      triggered.forEach(msg => {
-        setProactiveInbox(prev => ({
-          ...prev,
-          [msg.characterId]: {
-            id: msg.id,
-            characterId: msg.characterId,
-            stageId: "",
-            triggerCondition: "idle" as const,
-            messages: msg.messages.map((m, i) => ({
-              id: `sched-msg-${msg.id}-${i}`,
-              from: "char" as const,
-              type: "text" as const,
-              text: m.text,
-              delay: 600 + i * 400,
-              typing: 500,
-            })),
-            unread: true,
-            preview: msg.messages[0]?.text || "",
-            lastMessageTime: "刚刚",
-            topicTag: undefined,
-            createdAt: Date.now(),
-          },
-        }));
-        markMessageTriggered(msg.id);
-      });
+      // 服务端调度（关页/换设备期间到期的消息，未配置后端时静默返回空）
+      const remoteDue = await fetchDueScheduled();
+      if (remoteDue.length > 0) {
+        setProactiveInbox(prev => mergeDueIntoInbox(prev, remoteDue).inbox);
+        const remoteIds = remoteDue.map(m => m._id || m.id).filter((x): x is string => Boolean(x));
+        // 本地同 id 的调度也标记掉，避免重复入箱
+        remoteIds.forEach(id => markMessageTriggered(id));
+        consumeScheduled(remoteIds);
+      }
     };
 
     checkScheduled();
     const interval = setInterval(checkScheduled, 30000); // 每30秒检查
     return () => clearInterval(interval);
   }, [phase]);
+
+  // 启动时从服务端恢复记忆（新设备/清缓存场景；未配置后端时空操作）
+  useEffect(() => {
+    fetchRemoteSummaries().then(summaries => {
+      summaries.forEach(s => {
+        const local = loadChatSummary(s.characterId);
+        if (!local || (s.lastUpdated || 0) > (local.lastUpdated || 0)) {
+          saveChatSummary(s.characterId, s);
+        }
+      });
+    });
+    fetchRemoteLayeredMemories().then(memories => {
+      memories.forEach(m => {
+        const local = loadLayeredMemory(m.characterId);
+        if ((m.updatedAt || 0) > (local.updatedAt || 0)) {
+          saveLayeredMemory(m);
+        }
+      });
+    });
+  }, []);
 
   useEffect(() => {
     if (!selectedStoryId || phase === "landing" || phase === "select") return;
@@ -494,6 +513,20 @@ export default function Home() {
       ...prev,
       [charId]: { stageProgress: 4, hasFinished: true, endingId: eid },
     }));
+    // 记录结局里程碑（进"你们的故事"时间线）
+    const { endings } = getEndingsForCharacter(charId);
+    const ending = endings.get(eid);
+    if (ending) {
+      const mem = recordMilestone(charId, {
+        id: `ms-ending-${charId}`,
+        at: Date.now(),
+        type: "ending",
+        title: ending.title,
+        description: "这次聊天，改变了TA的选择",
+        emoji: ending.emoji || "🌟",
+      });
+      saveLayeredMemoryRemote(mem);
+    }
     setEndingId(eid);
     setPhase("ending");
   }, []);
@@ -511,6 +544,7 @@ export default function Home() {
         const newScheduled = getStoryScheduledMessages(charId, firstStageId);
         if (newScheduled.length > 0) {
           saveScheduledMessages([...existing, ...newScheduled]);
+          registerScheduledMessages(newScheduled); // 同步到服务端用于关页推送
         }
       }
     }
@@ -660,6 +694,22 @@ export default function Home() {
                     const current = prev[activeChar.id];
                     if (!current || current.hasFinished || current.stageProgress >= 3) return prev;
                     const newProgress = Math.max(current.stageProgress, Math.min(3, saved.stageIndex + 1));
+                    // 记录关系推进里程碑（每阶段一次，addMilestone 按标题幂等）
+                    if (newProgress > current.stageProgress) {
+                      const stageTitles = ["", "开始熟络起来", "TA向你敞开了心扉", "走到了故事的关键处"];
+                      const title = stageTitles[newProgress];
+                      if (title) {
+                        const mem = recordMilestone(activeChar.id, {
+                          id: `ms-stage-${activeChar.id}-${newProgress}`,
+                          at: Date.now(),
+                          type: "stage_advance",
+                          title,
+                          description: "你们的关系更近了一步",
+                          emoji: "🌱",
+                        });
+                        saveLayeredMemoryRemote(mem);
+                      }
+                    }
                     // 调度下一阶段的定时主动消息
                     const stages = getStagesForCharacter(activeChar.id);
                     const nextStageId = stages[newProgress]?.id;
@@ -668,6 +718,7 @@ export default function Home() {
                       if (newScheduled.length > 0) {
                         const existing = loadScheduledMessages();
                         saveScheduledMessages([...existing, ...newScheduled]);
+                        registerScheduledMessages(newScheduled); // 同步到服务端用于关页推送
                       }
                     }
                     return {
@@ -679,6 +730,8 @@ export default function Home() {
                     };
                   });
                 }
+                // 用户刚结束一段聊天，是请求通知权限的最佳时机（有上下文、有意愿）
+                enablePushNotifications();
               }
               setPhase("app");
             }}
@@ -718,6 +771,7 @@ export default function Home() {
             key={`timeline-${timelineChar.id}`}
             char={timelineChar}
             events={getTimeline(timelineChar.id, endingId)}
+            storyEvents={milestonesToTimelineEvents(loadLayeredMemory(timelineChar.id).milestones)}
             onBack={() => { setViewTimelineId(null); setPhase("profile"); setViewProfileId(timelineChar.id); }}
           />
         )}

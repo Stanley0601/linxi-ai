@@ -31,7 +31,7 @@ export const xiaoyuDailyLife: DailyLife[] = [
     id: "xy-d1", characterId: "xiaoyu", stageId: "xiaoyu-1", type: "photo",
     text: "图书馆占到了靠窗的位子嘿嘿",
     photoDesc: "[照片] 阳光洒在笔记本上，桌上摊着一本《深度学习》和一杯冰美式",
-    location: "华东理工·图书馆3楼", time: "上午", mood: "平静",
+    location: "临江理工·图书馆3楼", time: "上午", mood: "平静",
     canReply: true,
   },
   {
@@ -140,7 +140,7 @@ export const haoranDailyLife: DailyLife[] = [
     id: "hr-d2", characterId: "haoran", stageId: "haoran-1", type: "photo",
     text: "又在实验室过夜了",
     photoDesc: "[照片] 实验室的桌子上全是外卖盒和红牛罐，屏幕上是K线图和Python代码",
-    location: "复旦·金融实验室", time: "凌晨", mood: "疲惫",
+    location: "沪上财大·金融实验室", time: "凌晨", mood: "疲惫",
   },
   {
     id: "hr-d3", characterId: "haoran", stageId: "haoran-1", type: "thought",
@@ -219,7 +219,7 @@ export const momoDailyLife: DailyLife[] = [
     id: "mm-d1", characterId: "momo", stageId: "momo-1", type: "photo",
     text: "今天的作业。画了三个小时，但总觉得少了什么",
     photoDesc: "[照片] 一幅水彩画，画的是窗边的植物，阳光的色彩处理很细腻",
-    location: "中国美院·画室", time: "下午", mood: "若有所思",
+    location: "中南美院院·画室", time: "下午", mood: "若有所思",
     canReply: true,
   },
   {

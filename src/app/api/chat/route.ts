@@ -4,17 +4,19 @@ import { getCharacter } from "@/lib/characters";
 import { buildSystemPrompt } from "@/lib/prompts";
 import { getStagesForCharacter } from "@/lib/story-stages";
 import { buildMoodPromptBlock } from "@/lib/mood-engine";
+import { parseLLMContent } from "@/lib/llm-parse";
+import { buildCrisisPromptBlock } from "@/lib/safety";
+import { getRealtimeTopics } from "@/lib/server/realtime";
 
 /**
  * POST /api/chat
  *
- * LLM对话接口 —— 当前支持真实模型 + fallback
- * 接入API后，这里会调用 DeepSeek/混元/OpenAI
+ * LLM 对话接口。API Key 只存在于服务端，绝不下发到客户端。
  *
  * 环境变量（.env.local）：
  *   LLM_API_KEY=your-api-key
- *   LLM_BASE_URL=https://api.deepseek.com/v1  (或混元/OpenAI)
- *   LLM_MODEL=deepseek-chat  (或其他模型)
+ *   LLM_BASE_URL=https://api.deepseek.com/v1  (或任意 OpenAI 兼容端点)
+ *   LLM_MODEL=deepseek-chat
  */
 
 const API_KEY = process.env.LLM_API_KEY;
@@ -22,20 +24,14 @@ const BASE_URL = process.env.LLM_BASE_URL || "https://api.deepseek.com/v1";
 const MODEL = process.env.LLM_MODEL || "deepseek-chat";
 
 export async function POST(request: NextRequest) {
+  if (!API_KEY) {
+    // 未配置 key：返回 503，前端捕获后自动降级到本地 mock 引擎
+    return NextResponse.json({ error: "LLM_API_KEY not configured" }, { status: 503 });
+  }
+
   try {
     const body: ChatApiRequest = await request.json();
-
-    if (API_KEY) {
-      return await callLLM(body);
-    }
-
-    return NextResponse.json({
-      replies: [{ text: "（LLM API未配置，当前仍使用本地剧情引擎）", delay: 500 }],
-      emotion: "neutral",
-      shouldAdvanceStage: false,
-      nextStageId: null,
-      suggestedReplies: [],
-    } satisfies ChatApiResponse);
+    return await callLLM(body);
   } catch (error) {
     console.error("Chat API error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -50,12 +46,24 @@ async function callLLM(body: ChatApiRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid character or stage" }, { status: 400 });
   }
 
+  // 实时话题（信息型陪伴）：服务端取真实资讯（RSS/比分），
+  // 取不到时 buildInterestPromptBlock 自动回落 mock 话题池
+  let liveTopics = body.realtimeTopics;
+  if ((!liveTopics || liveTopics.length === 0) && body.userProfile?.interestTags?.length) {
+    try {
+      liveTopics = await getRealtimeTopics(body.userProfile.interestTags, 2);
+    } catch {
+      liveTopics = undefined;
+    }
+  }
+
   let systemPrompt = buildSystemPrompt(
     character,
     stage,
     body.userProfile || null,
-    body.realtimeTopics,
+    liveTopics,
     body.chatSummary || null,
+    body.layeredMemory || null,
   );
 
   // 注入心情状态
@@ -66,6 +74,11 @@ async function callLLM(body: ChatApiRequest): Promise<NextResponse> {
       history: [],
     });
     systemPrompt = systemPrompt + "\n\n" + moodBlock;
+  }
+
+  // 危机模式：干预指令放在最后，优先级最高
+  if (body.crisis) {
+    systemPrompt = systemPrompt + "\n\n" + buildCrisisPromptBlock();
   }
 
   const response = await fetch(`${BASE_URL}/chat/completions`, {
@@ -87,54 +100,18 @@ async function callLLM(body: ChatApiRequest): Promise<NextResponse> {
   });
 
   const data = await response.json();
-  console.log("[LLM Response]", JSON.stringify(data).slice(0, 500));
 
   if (!response.ok) {
     console.error("[LLM Error]", data);
-    return NextResponse.json({
-      replies: [{ text: `API错误: ${data.error?.message || response.status}`, delay: 500 }],
-      emotion: "neutral",
-      shouldAdvanceStage: false,
-      nextStageId: null,
-      suggestedReplies: [],
-    });
+    // 上游失败：返回 502，前端降级到本地 mock 引擎
+    return NextResponse.json(
+      { error: data.error?.message || `Upstream error ${response.status}` },
+      { status: 502 },
+    );
   }
 
   const content: string = data.choices?.[0]?.message?.content || "嗯嗯";
-
-  const shouldAdvance = content.includes("[NEXT]");
-  const cleanContent = content.replace("[NEXT]", "").trim();
-  
-  // 分割消息：优先用 | 分割，fallback 用换行
-  let parts: string[];
-  if (cleanContent.includes("|")) {
-    parts = cleanContent.split("|").map((s: string) => s.trim()).filter(Boolean);
-  } else if (cleanContent.includes("\n")) {
-    parts = cleanContent.split("\n").map((s: string) => s.trim()).filter(Boolean);
-  } else if (cleanContent.length > 20) {
-    // 模型没遵循分割规则，强制按标点拆
-    const segments = cleanContent.split(/(?<=[，。！？\s])/);
-    parts = [];
-    let buf = "";
-    for (const seg of segments) {
-      if ((buf + seg).length > 18 && buf.length > 0) {
-        parts.push(buf.trim());
-        buf = seg;
-      } else {
-        buf += seg;
-      }
-    }
-    if (buf.trim()) parts.push(buf.trim());
-    if (parts.length === 0) parts = [cleanContent];
-  } else {
-    parts = [cleanContent];
-  }
-
-  // 过滤掉图片描述（LLM有时会幻觉出[图片：xxx]这样的内容）
-  parts = parts
-    .map(p => p.replace(/\[图片[：:].*?\]/g, "").replace(/\[照片.*?\]/g, "").replace(/（发了.*?）/g, "").trim())
-    .filter(p => p.length > 0);
-  if (parts.length === 0) parts = ["嗯嗯"];
+  const { parts, shouldAdvance } = parseLLMContent(content);
 
   return NextResponse.json({
     replies: parts.map((text: string, i: number) => ({

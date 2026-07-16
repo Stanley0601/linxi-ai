@@ -115,6 +115,49 @@ export interface EndingContrastCard {
   outcome?: EndingOutcomePreview;
 }
 
+// ======= 分层记忆 =======
+
+/** 事实库：TA 记住的关于用户的稳定事实 */
+export interface MemoryFact {
+  key: string;        // 规范化主题，如 "城市"、"专业"、"最近的大事"
+  value: string;      // "在杭州上学"
+  updatedAt: number;
+}
+
+/** 情节记忆：每次聊天session的浓缩 */
+export interface EpisodeMemory {
+  id: string;
+  at: number;
+  title: string;      // "聊了保研和创业的纠结"
+  gist: string;       // 一两句话的经过
+  emotion?: string;   // 那次聊天的主情绪
+}
+
+/** 关系里程碑：喂给"你们的故事"时间线 */
+export interface RelationshipMilestone {
+  id: string;
+  at: number;
+  type: "first_chat" | "stage_advance" | "deep_talk" | "ending";
+  title: string;
+  description: string;
+  emoji: string;
+}
+
+export interface LayeredMemory {
+  characterId: string;
+  facts: MemoryFact[];
+  episodes: EpisodeMemory[];
+  milestones: RelationshipMilestone[];
+  updatedAt: number;
+}
+
+/** 注入对话 prompt 的裁剪版分层记忆 */
+export interface LayeredMemoryPayload {
+  facts: { key: string; value: string }[];
+  episodes: { title: string; gist: string; at: number }[];
+  milestones: { title: string; at: number }[];
+}
+
 export interface ChatApiRequest {
   characterId: string;
   stageId: string;
@@ -122,8 +165,11 @@ export interface ChatApiRequest {
   userMessage: string;
   userProfile?: UserProfile | null;
   realtimeTopics?: InterestTopic[];
-  chatSummary?: { summary: string; keyTopics: string[]; userAttitude: string } | null;
+  chatSummary?: { summary: string; keyTopics: string[]; userAttitude: string; myStatements?: string[] } | null;
   mood?: { current: string; intensity: number } | null;
+  layeredMemory?: LayeredMemoryPayload | null;
+  /** 用户消息命中危机信号，注入危机干预指令 */
+  crisis?: boolean;
 }
 
 export interface ChatApiResponse {

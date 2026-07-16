@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // CloudBase 云函数是独立部署的 Node CJS 运行时，不走 Next.js 规则
+    "cloudfunctions/**",
   ]),
 ]);
 
