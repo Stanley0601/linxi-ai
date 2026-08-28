@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+// 独立 Node 脚本（puppeteer 生成说明文档 PDF），CommonJS require 为刻意保留
 const puppeteer = require('puppeteer');
 const path = require('path');
 

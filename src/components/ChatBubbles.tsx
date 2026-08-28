@@ -110,6 +110,12 @@ function FaceSticker({ emotion }: { emotion: string }) {
 export function MsgBubble({ msg, charImg, charName, charId }: { msg: ChatMsg; charImg: string; charName: string; charId: string }) {
   const shouldReduceMotion = useReducedMotion();
   const [showPreview, setShowPreview] = useState(false);
+  // 自拍：模型用 [SELFIE] 标记要求发照片时，从角色自拍池随机取一张。
+  // 用 useState 惰性初始化，确保每次挂载只随机一次，避免重渲染时图片闪烁变换。
+  // 注意：必须放在下方早退 return 之前，否则违反 react-hooks/rules-of-hooks。
+  const [selfieUrl] = useState(() =>
+    /\[SELFIE\]/.test(msg.text) && charId ? getRandomSelfie(charId) : ""
+  );
 
   if (msg.type === "timeskip") {
     return (
@@ -139,12 +145,7 @@ export function MsgBubble({ msg, charImg, charName, charId }: { msg: ChatMsg; ch
   const { cleanText, image } = parseImageTag(afterSticker);
   const displayText = cleanText.replace(/\[SELFIE\]/g, "").trim();
 
-  // 自拍：模型用 [SELFIE] 标记要求发照片时，从角色自拍池随机取一张。
-  // 用 useState 惰性初始化，确保每次挂载只随机一次，避免重渲染时图片闪烁变换。
-  const hasSelfie = /\[SELFIE\]/.test(msg.text);
-  const [selfieUrl] = useState(() =>
-    hasSelfie && charId ? getRandomSelfie(charId) : ""
-  );
+  // [SELFIE] 对应的随机自拍图（惰性初始化已上移到组件顶部）
   const selfieImg = selfieUrl ? { url: selfieUrl, desc: "自拍" } : null;
   const bubbleImg = image || selfieImg;
 
